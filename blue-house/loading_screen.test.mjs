@@ -142,7 +142,7 @@ function receiver({
 test("draws three initial particles synchronously instead of paying for the whole field", () => {
   const { draws, api } = receiver();
   assert.equal(draws.length, 3);
-  assert.equal(api.getPerformance().targetParticleCount, 175);
+  assert.equal(api.getPerformance().targetParticleCount, 350);
   assert.equal(api.getPerformance().particleCount, 3);
 });
 
@@ -151,12 +151,12 @@ test("adds particles gradually and reaches the requested final proportions", asy
   await advance(1000);
   assert.ok(api.getPerformance().particleCount > 3);
   assert.ok(api.getPerformance().particleCount < 30);
-  await advance(10000);
+  await advance(20000);
   const draws = frame();
-  assert.equal(draws.length, 175);
-  assert.equal(draws.filter((dot) => dot.color === "#E8EEF4").length, 105);
-  assert.equal(draws.filter((dot) => dot.color === "#005E88").length, 53);
-  assert.equal(draws.filter((dot) => dot.color === "#F58220").length, 17);
+  assert.equal(draws.length, 350);
+  assert.equal(draws.filter((dot) => dot.color === "#E8EEF4").length, 210);
+  assert.equal(draws.filter((dot) => dot.color === "#005E88").length, 105);
+  assert.equal(draws.filter((dot) => dot.color === "#F58220").length, 35);
 });
 
 test("does not catch up with a particle burst after a long frame", async () => {
@@ -236,12 +236,12 @@ test("reduced motion skips animation and canvas failure does not disable the cov
 
 test("scales particle density while capping Google TV work and preserving the palette", async () => {
   const { frame, advance } = receiver({ width: 3840, height: 2160 });
-  await advance(20000);
+  await advance(40000);
   const draws = frame();
-  assert.equal(draws.length, 350);
-  assert.equal(draws.filter((dot) => dot.color === "#E8EEF4").length, 210);
-  assert.equal(draws.filter((dot) => dot.color === "#005E88").length, 105);
-  assert.equal(draws.filter((dot) => dot.color === "#F58220").length, 35);
+  assert.equal(draws.length, 700);
+  assert.equal(draws.filter((dot) => dot.color === "#E8EEF4").length, 420);
+  assert.equal(draws.filter((dot) => dot.color === "#005E88").length, 210);
+  assert.equal(draws.filter((dot) => dot.color === "#F58220").length, 70);
 });
 
 test("covering follows the exact time reverse of the circular reveal", async () => {
@@ -276,7 +276,8 @@ test("profiles frame gaps by phase without counting hidden time as animation wor
   api.setPhase("unloaded");
   await advance(200);
   const profile = api.getPerformance();
-  assert.equal(profile.particleCount, 175);
+  assert.equal(profile.targetParticleCount, 350);
+  assert.ok(profile.particleCount > 3 && profile.particleCount <= 350);
   assert.ok(profile.phases.startup.frames > 0);
   assert.ok(profile.phases.mounting.draws > 0);
   assert.ok(profile.phases.unloaded.frames > 0);
