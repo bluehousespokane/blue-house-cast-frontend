@@ -7,15 +7,47 @@ commits; builds do not rewrite upstream files.
 The receiver-specific changes are limited to:
 
 - `src/cast/const.ts`: the registered application ID and message namespace.
-- `cast/src/html/receiver.html.template`: black background before scripts load.
+- `cast/src/html/receiver.html.template`: inline black cover, particles, and
+  circular reveal before any external scripts load.
 - `cast/src/receiver/layout/hc-launch-screen.ts`: a black waiting screen that
   still displays connection errors.
-- `cast/src/receiver/layout/hc-main.ts` and `src/cast/sender_messages.ts`:
-  additive visibility and configured-view readiness status for the launcher.
+- `cast/src/receiver/layout/hc-main.ts`, `hc-lovelace.ts`, and
+  `cast/src/receiver/entrypoint.ts`: cover before swapping or unloading a view,
+  keep the receiver connected, and acknowledge completed operations.
+- `src/cast/receiver_messages.ts` and `sender_messages.ts`: additive loading
+  controls, render generation, visibility, and operation status.
 
 Authentication, dashboard rendering, custom-card loading, navigation, and media
 handling continue to use upstream code. The status extensions do not establish
 that every card has rendered successfully.
+
+## Loading and view changes
+
+The inline canvas draws immediately, without a particle library. Its density
+scales with viewport area and is capped at 700 particles. Counts retain exactly
+60% `#E8EEF4`, 30% `#005E88`, and 10% `#F58220`. The 80% canvas and 30% layer
+opacity match the supplied design. Motion uses the original particles.js
+speed calculation, edge bounce, independent blue opacity animation, light and
+orange size animation, light attraction, and blue pointer grab. Drawing pauses
+after the cover is hidden; reduced motion uses a static field.
+
+For every show-view request, the old dashboard stays in place until the cover
+is opaque. The next view mounts with a fresh render generation, including a
+repeat request for the same view. After its render event, a two-second settle
+allows media and asynchronous cards to start. The cover then reveals the page
+from the viewport center over five seconds, with a 75vw feather and the supplied
+smootherstep alpha profile. The whole cover is masked so particles disappear
+with the black layer. Covering uses the reverse circle over 650 ms. Reduced
+motion completes both transitions immediately.
+
+`show_loading_screen` holds the opaque cover without removing the dashboard.
+`hide_loading_screen` reveals the current content. `unload_dashboard` covers
+first, removes the view and its Lovelace subscription, and keeps the receiver
+and Home Assistant connection open. A later show-view request loads and reveals
+normally. An optional `operationId` is echoed as `completedOperationId` only
+when that command's required transition has completed, preventing an earlier
+status from acknowledging a new action. Ordinary upstream messages remain
+supported without an operation ID.
 
 ## Upstream updates
 
@@ -43,6 +75,7 @@ Use Node from `.nvmrc` and pnpm from `package.json`, then:
 
 ```sh
 pnpm install --frozen-lockfile
+node blue-house/loading_screen.test.mjs
 pnpm test test/cast/
 SKIP_FETCH_NIGHTLY_TRANSLATIONS=1 pnpm exec gulp build-cast
 python3 blue-house/check_receiver_artifact.py cast/dist/receiver.html
@@ -55,5 +88,10 @@ the upstream base translations remain. Output is under `cast/dist` and is
 generated runtime material, not source for this branch. The upstream license
 must accompany distributed receiver files.
 
-The Cast build checks that its generated `receiver.html` places the inline
-black startup styles before the external Cast SDK script.
+The dependency-free loading-screen tests execute the actual inline bootstrap
+with a controlled clock. They cover the first synchronous draw, palette and
+density, motion, circular reveal, hold and reuse, interrupted transitions,
+reduced motion, and unavailable canvas. The artifact check separately verifies
+that generated startup styles, the cover, and the bootstrap precede the Cast
+SDK. CI also runs formatting, ESLint, Cast tests, the Cast build, and full
+TypeScript checking for the exact source commit.

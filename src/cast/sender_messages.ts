@@ -8,6 +8,9 @@ export interface ReceiverStatusMessage extends BaseCastMessage {
   showDemo: boolean;
   visible?: boolean;
   viewReady?: boolean;
+  loadingScreenVisible?: boolean;
+  dashboardLoaded?: boolean;
+  completedOperationId?: string;
   hassUrl?: string;
   hassUUID?: string;
   lovelacePath?: string | number | null;

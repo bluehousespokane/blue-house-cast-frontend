@@ -26,14 +26,36 @@ export interface ShowLovelaceViewMessage extends BaseCastMessage {
   urlPath: string | null;
   hassUrl: string;
   hassUUID?: string;
+  operationId?: string;
 }
 
 export interface ShowDemoMessage extends BaseCastMessage {
   type: "show_demo";
 }
 
+export interface ShowLoadingScreenMessage extends BaseCastMessage {
+  type: "show_loading_screen";
+  operationId?: string;
+}
+
+export interface HideLoadingScreenMessage extends BaseCastMessage {
+  type: "hide_loading_screen";
+  operationId?: string;
+}
+
+export interface UnloadDashboardMessage extends BaseCastMessage {
+  type: "unload_dashboard";
+  operationId?: string;
+}
+
 export type HassMessage =
-  ShowDemoMessage | GetStatusMessage | ConnectMessage | ShowLovelaceViewMessage;
+  | ShowDemoMessage
+  | GetStatusMessage
+  | ConnectMessage
+  | ShowLovelaceViewMessage
+  | ShowLoadingScreenMessage
+  | HideLoadingScreenMessage
+  | UnloadDashboardMessage;
 
 export const castSendAuth = (cast: CastManager, auth: Auth) =>
   cast.sendMessage({

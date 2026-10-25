@@ -98,15 +98,24 @@ options.customNamespaces = {
 
 castContext.addCustomMessageListener(CAST_NS, (ev) => {
   // We received a show Lovelace command, stop media from playing, hide media player and show Lovelace controller
+  const msg = ev.data as HassMessage;
+  const activateReceiver =
+    msg.type === "show_lovelace_view" ||
+    msg.type === "show_demo" ||
+    msg.type === "show_loading_screen" ||
+    msg.type === "hide_loading_screen" ||
+    msg.type === "unload_dashboard";
   if (
     playerManager.getPlayerState() !==
     ("IDLE" as framework.messages.PlayerState.IDLE)
   ) {
     playerManager.stop();
+    if (activateReceiver) {
+      showLovelaceController();
+    }
   } else {
     showLovelaceController();
   }
-  const msg = ev.data as HassMessage;
   msg.senderId = ev.senderId;
   lovelaceController.processIncomingMessage(msg);
 });
