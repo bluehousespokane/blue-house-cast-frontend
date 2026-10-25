@@ -1,7 +1,7 @@
 import type { UnsubscribeFunc } from "home-assistant-js-websocket";
 import { createConnection, getAuth } from "home-assistant-js-websocket";
 import type { TemplateResult, PropertyValues } from "lit";
-import { html } from "lit";
+import { html, nothing } from "lit";
 import { customElement, state } from "lit/decorators";
 import { keyed } from "lit/directives/keyed";
 import { CAST_NS } from "../../../../src/cast/const";
@@ -142,7 +142,7 @@ export class HcMain extends HassElement {
     }
   }
 
-  protected render(): TemplateResult {
+  protected render(): TemplateResult | typeof nothing {
     if (this._showDemo) {
       return html` <hc-demo .lovelacePath=${this._lovelacePath}></hc-demo> `;
     }
@@ -157,7 +157,7 @@ export class HcMain extends HassElement {
       !this.hass.services
     ) {
       if (!this._error) {
-        return html``;
+        return nothing;
       }
       return html`
         <hc-launch-screen
