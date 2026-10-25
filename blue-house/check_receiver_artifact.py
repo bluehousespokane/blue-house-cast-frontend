@@ -46,4 +46,50 @@ if not any(black_background.search(style) for style in startup_styles):
 if not any(dark_color_scheme.search(style) for style in startup_styles):
     raise SystemExit("startup styles must declare a dark color scheme")
 
+before_cast_sdk = receiver_html[:cast_sdk_offset]
+if 'id="cast-loading-screen"' not in before_cast_sdk:
+    raise SystemExit("the loading screen must be present before the Cast SDK")
+
+if 'id="cast-loading-particles"' not in before_cast_sdk:
+    raise SystemExit("the loading particles must be present before the Cast SDK")
+
+if "cast-loading-spinner" in before_cast_sdk:
+    raise SystemExit(
+        "the particle field is the loading indicator; do not add a second spinner"
+    )
+
+for color in ("#E8EEF4", "#005E88", "#F58220"):
+    if color not in before_cast_sdk:
+        raise SystemExit(f"loading screen is missing palette color {color}")
+
+start_particles = re.search(
+    r"const startParticles = \(\) => \{(.*?)\n        \};",
+    before_cast_sdk,
+    re.DOTALL,
+)
+if not start_particles or not re.search(
+    r"drawParticles\(performance\.now\(\)\)", start_particles.group(1)
+):
+    raise SystemExit("the particle loader must draw its first frame synchronously")
+
+if not re.search(r"startParticles\(\);\s*\}\)\(\);", before_cast_sdk):
+    raise SystemExit("the particle loader must start before the Cast SDK is loaded")
+
+if not re.search(
+    r"Array\(60\)\.fill\(\"#E8EEF4\"\).*?"
+    r"Array\(30\)\.fill\(\"#005E88\"\).*?"
+    r"Array\(10\)\.fill\(\"#F58220\"\)",
+    before_cast_sdk,
+    re.DOTALL,
+):
+    raise SystemExit("particles must use 60 off-white, 30 blue, and 10 orange dots")
+
+if not re.search(
+    r"setTimeout\(\s*\(\)\s*=>\s*finishLoading\(true\),\s*2000\s*\)",
+    before_cast_sdk,
+):
+    raise SystemExit(
+        "the receiver should hold the reveal for the selected 2-second settle"
+    )
+
 print(f"Cast receiver startup artifact verified: {receiver_path}")

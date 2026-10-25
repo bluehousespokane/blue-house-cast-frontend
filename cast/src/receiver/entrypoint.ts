@@ -1,5 +1,6 @@
 import { CAST_NS } from "../../../src/cast/const";
 import type { HassMessage } from "../../../src/cast/receiver_messages";
+import { fireEvent } from "../../../src/common/dom/fire_event";
 import "../../../src/resources/custom-card-support";
 import { castContext } from "./cast_context";
 import { framework } from "./cast_framework";
@@ -68,6 +69,7 @@ const showMediaPlayer = () => {
   mediaPlayer.style.display = "initial";
   document.body.removeAttribute("style");
   setTouchControlsVisibility(true);
+  fireEvent(window, "cast-loading-ready");
   if (!playerStylesAdded) {
     const style = document.createElement("style");
     style.innerHTML = `
@@ -154,3 +156,9 @@ playerManager.addEventListener(
 );
 
 castContext.start(options);
+
+declare global {
+  interface HASSDomEvents {
+    "cast-loading-ready": undefined;
+  }
+}
