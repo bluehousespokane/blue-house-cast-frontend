@@ -109,7 +109,7 @@ unload, and does not affect the loading screen or Cast media player.
 `loadingPerformance` status contains bounded numeric aggregates for startup,
 mounting, mounted, and unloaded phases: animation-frame gaps, frames over 50ms,
 and particle draw time. It includes no dashboard content or network payloads.
-Frame timings measure main-thread scheduling, not GPU presentation or video
+Frame timings measure renderer scheduling, not GPU presentation or video
 readiness. Drawing is capped at 25fps; animation-frame gaps measure RAF cadence.
 
 ## Particle scheduling
