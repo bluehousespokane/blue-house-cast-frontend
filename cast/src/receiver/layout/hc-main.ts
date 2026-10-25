@@ -3,13 +3,17 @@ import { createConnection, getAuth } from "home-assistant-js-websocket";
 import type { TemplateResult, PropertyValues } from "lit";
 import { html } from "lit";
 import { customElement, state } from "lit/decorators";
+import { keyed } from "lit/directives/keyed";
 import { CAST_NS } from "../../../../src/cast/const";
 import type {
   ConnectMessage,
   GetStatusMessage,
   HassMessage,
+  HideLoadingScreenMessage,
   ShowDemoMessage,
   ShowLovelaceViewMessage,
+  ShowLoadingScreenMessage,
+  UnloadDashboardMessage,
 } from "../../../../src/cast/receiver_messages";
 import type {
   ReceiverErrorMessage,
@@ -18,6 +22,7 @@ import type {
 import { ReceiverErrorCode } from "../../../../src/cast/sender_messages";
 import { atLeastVersion } from "../../../../src/common/config/version";
 import { isNavigationClick } from "../../../../src/common/dom/is-navigation-click";
+import type { HASSDomEvent } from "../../../../src/common/dom/fire_event";
 import {
   getLegacyLovelaceCollection,
   getLovelaceCollection,
@@ -36,6 +41,7 @@ import "./hc-launch-screen";
 import { getPanelTitleFromUrlPath } from "../../../../src/data/panel";
 import { checkLovelaceConfig } from "../../../../src/panels/lovelace/common/check-lovelace-config";
 import { isRequestedLovelaceViewReady } from "../view_ready";
+import type { CastViewChanged } from "./hc-lovelace";
 
 const DEFAULT_CONFIG: LovelaceDashboardStrategyConfig = {
   strategy: {
@@ -44,9 +50,23 @@ const DEFAULT_CONFIG: LovelaceDashboardStrategyConfig = {
 };
 
 let resourcesLoaded = false;
+
+interface ReceiverLoadingScreen {
+  show(hold?: boolean): Promise<boolean>;
+  hide(): Promise<boolean>;
+  scheduleReveal(): void;
+  subscribe(listener: (visible: boolean) => void): () => void;
+}
+
 @customElement("hc-main")
 export class HcMain extends HassElement {
   @state() private _showDemo = false;
+
+  @state() private _loadingScreenVisible = true;
+
+  @state() private _dashboardLoaded = false;
+
+  @state() private _viewGeneration = 0;
 
   @state() private _lovelaceConfig?: LovelaceConfig;
 
@@ -60,11 +80,34 @@ export class HcMain extends HassElement {
 
   private _unsubLovelace?: UnsubscribeFunc;
 
+  private _unsubLoadingScreen?: () => void;
+
+  private _loadGeneration = 0;
+
+  private _configGeneration = 0;
+
+  private _expectedViewGeneration = 0;
+
+  private _pendingViewOperationId?: string;
+
+  private _completedOperationId?: string;
+
   private _handleVisibilityChange = () => this._sendStatus();
 
   public connectedCallback() {
     super.connectedCallback();
     document.addEventListener("visibilitychange", this._handleVisibilityChange);
+    this.addEventListener("cast-view-changed", this._handleCastViewChanged);
+    this._unsubLoadingScreen = window.blueHouseCastLoadingScreen?.subscribe(
+      (visible) => {
+        this._loadingScreenVisible = visible;
+        if (!visible && this._dashboardLoaded && this._pendingViewOperationId) {
+          this._completedOperationId = this._pendingViewOperationId;
+          this._pendingViewOperationId = undefined;
+        }
+        this._sendStatus();
+      }
+    );
   }
 
   public disconnectedCallback() {
@@ -72,6 +115,9 @@ export class HcMain extends HassElement {
       "visibilitychange",
       this._handleVisibilityChange
     );
+    this.removeEventListener("cast-view-changed", this._handleCastViewChanged);
+    this._unsubLoadingScreen?.();
+    this._unsubLoadingScreen = undefined;
     super.disconnectedCallback();
   }
 
@@ -84,6 +130,12 @@ export class HcMain extends HassElement {
       this._handleGetStatusMessage(msg);
     } else if (msg.type === "show_demo") {
       this._handleShowDemo(msg);
+    } else if (msg.type === "show_loading_screen") {
+      this._handleShowLoadingScreen(msg);
+    } else if (msg.type === "hide_loading_screen") {
+      this._handleHideLoadingScreen(msg);
+    } else if (msg.type === "unload_dashboard") {
+      this._handleUnloadDashboard(msg);
     } else {
       // eslint-disable-next-line no-console
       console.warn("unknown msg type", msg);
@@ -104,6 +156,9 @@ export class HcMain extends HassElement {
       !this.hass.config ||
       !this.hass.services
     ) {
+      if (!this._error) {
+        return html``;
+      }
       return html`
         <hc-launch-screen
           .hass=${this.hass}
@@ -111,15 +166,19 @@ export class HcMain extends HassElement {
         ></hc-launch-screen>
       `;
     }
-    return html`
-      <hc-lovelace
-        .hass=${this.hass}
-        .lovelaceConfig=${this._lovelaceConfig}
-        .urlPath=${this._urlPath}
-        .viewPath=${this._lovelacePath}
-        @config-refresh=${this._generateDefaultLovelaceConfig}
-      ></hc-lovelace>
-    `;
+    return html`${keyed(
+      this._viewGeneration,
+      html`
+        <hc-lovelace
+          .hass=${this.hass}
+          .lovelaceConfig=${this._lovelaceConfig}
+          .urlPath=${this._urlPath}
+          .viewPath=${this._lovelacePath}
+          .renderGeneration=${this._viewGeneration}
+          @config-refresh=${this._generateDefaultLovelaceConfig}
+        ></hc-lovelace>
+      `
+    )}`;
   }
 
   protected firstUpdated(changedProps: PropertyValues<this>) {
@@ -132,6 +191,7 @@ export class HcMain extends HassElement {
       const panelPath = `/${this._urlPath || "lovelace"}/`;
       if (location.pathname.startsWith(panelPath)) {
         this._lovelacePath = location.pathname.substr(panelPath.length);
+        this._dashboardLoaded = false;
         this._sendStatus();
       }
     });
@@ -140,6 +200,7 @@ export class HcMain extends HassElement {
       const href = isNavigationClick(ev);
       if (href && href.startsWith(panelPath)) {
         this._lovelacePath = href.substr(panelPath.length);
+        this._dashboardLoaded = false;
         this._sendStatus();
       }
     });
@@ -158,6 +219,9 @@ export class HcMain extends HassElement {
         this._lovelacePath,
         !!this.hass?.connected
       ),
+      loadingScreenVisible: this._loadingScreenVisible,
+      dashboardLoaded: this._dashboardLoaded,
+      completedOperationId: this._completedOperationId,
     };
 
     if (this.hass) {
@@ -217,6 +281,10 @@ export class HcMain extends HassElement {
   }
 
   private async _handleConnectMessage(msg: ConnectMessage) {
+    if (this._hassUUID && this._hassUUID !== msg.hassUUID) {
+      this._loadGeneration += 1;
+      await this._showLoadingScreen(true);
+    }
     let auth;
     try {
       auth = await getAuth({
@@ -233,6 +301,7 @@ export class HcMain extends HassElement {
       const errorMessage = this._getErrorMessage(err);
       this._error = errorMessage;
       this._sendError(err, errorMessage);
+      await this._hideLoadingScreen();
       return;
     }
     let connection;
@@ -242,6 +311,7 @@ export class HcMain extends HassElement {
       const errorMessage = this._getErrorMessage(err);
       this._error = errorMessage;
       this._sendError(err, errorMessage);
+      await this._hideLoadingScreen();
       return;
     }
     if (this.hass) {
@@ -249,10 +319,12 @@ export class HcMain extends HassElement {
     }
     this.initializeHass(auth, connection);
     if (this._hassUUID !== msg.hassUUID) {
+      this._configGeneration += 1;
       this._hassUUID = msg.hassUUID;
       this._lovelaceConfig = undefined;
       this._urlPath = undefined;
       this._lovelacePath = null;
+      this._dashboardLoaded = false;
       if (this._unsubLovelace) {
         this._unsubLovelace();
         this._unsubLovelace = undefined;
@@ -264,7 +336,6 @@ export class HcMain extends HassElement {
   }
 
   private async _handleShowLovelaceMessage(msg: ShowLovelaceViewMessage) {
-    this._showDemo = false;
     // We should not get this command before we are connected.
     // Means a client got out of sync. Let's send status to them.
     if (!this.hass?.connected) {
@@ -275,6 +346,7 @@ export class HcMain extends HassElement {
         this._error,
         msg.senderId!
       );
+      await this._hideLoadingScreen();
       return;
     }
 
@@ -290,15 +362,31 @@ export class HcMain extends HassElement {
         this._error,
         msg.senderId!
       );
+      await this._hideLoadingScreen();
       return;
     }
 
-    this._error = undefined;
     if (msg.urlPath === "lovelace" || msg.urlPath === undefined) {
       msg.urlPath = null;
     }
+    const generation = ++this._loadGeneration;
+    const viewGeneration = this._viewGeneration + 1;
+    this._expectedViewGeneration = viewGeneration;
+    this._pendingViewOperationId = msg.operationId;
+    const covered = await this._showLoadingScreen(false);
+    if (!covered || generation !== this._loadGeneration) {
+      return;
+    }
+
+    this._showDemo = false;
+    this._error = undefined;
+    this._dashboardLoaded = false;
+    this._viewGeneration = viewGeneration;
     this._lovelacePath = msg.viewPath;
     if (msg.urlPath === "energy") {
+      this._configGeneration += 1;
+      this._unsubLovelace?.();
+      this._unsubLovelace = undefined;
       this._lovelaceConfig = {
         views: [
           {
@@ -314,11 +402,17 @@ export class HcMain extends HassElement {
       return;
     }
     if (!this._unsubLovelace || this._urlPath !== msg.urlPath) {
+      const configGeneration = ++this._configGeneration;
       this._urlPath = msg.urlPath;
       this._lovelaceConfig = undefined;
+      this._dashboardLoaded = false;
       if (this._unsubLovelace) {
         this._unsubLovelace();
         this._unsubLovelace = undefined;
+      }
+      await this.updateComplete;
+      if (generation !== this._loadGeneration) {
+        return;
       }
       const llColl = atLeastVersion(this.hass.connection.haVersion, 0, 107)
         ? getLovelaceCollection(this.hass.connection, msg.urlPath)
@@ -327,6 +421,9 @@ export class HcMain extends HassElement {
       // configuration.
       try {
         await llColl.refresh();
+        if (generation !== this._loadGeneration) {
+          return;
+        }
         this._unsubLovelace = llColl.subscribe(async (rawConfig) => {
           if (isStrategyDashboard(rawConfig)) {
             const { generateLovelaceDashboardStrategy } =
@@ -335,12 +432,17 @@ export class HcMain extends HassElement {
               rawConfig,
               this.hass!
             );
-            this._handleNewLovelaceConfig(config);
-          } else {
+            if (configGeneration === this._configGeneration) {
+              this._handleNewLovelaceConfig(config);
+            }
+          } else if (configGeneration === this._configGeneration) {
             this._handleNewLovelaceConfig(rawConfig);
           }
         });
       } catch (err: any) {
+        if (generation !== this._loadGeneration) {
+          return;
+        }
         if (
           atLeastVersion(this.hass.connection.haVersion, 0, 107) &&
           err.code !== "config_not_found"
@@ -349,6 +451,7 @@ export class HcMain extends HassElement {
           console.log("Error fetching Lovelace configuration", err, msg);
           this._error = `Error fetching Lovelace configuration: ${err.message}`;
           this._sendError(ReceiverErrorCode.FETCH_CONFIG_FAILED, this._error);
+          await this._hideLoadingScreen();
           return;
         }
         // Generate a Lovelace config.
@@ -366,15 +469,23 @@ export class HcMain extends HassElement {
       }
     }
 
+    if (generation !== this._loadGeneration) {
+      return;
+    }
     this._sendStatus();
   }
 
   private async _generateDefaultLovelaceConfig() {
+    const generation = this._configGeneration;
     const { generateLovelaceDashboardStrategy } =
       await import("../../../../src/panels/lovelace/strategies/get-strategy");
-    this._handleNewLovelaceConfig(
-      await generateLovelaceDashboardStrategy(DEFAULT_CONFIG, this.hass!)
+    const config = await generateLovelaceDashboardStrategy(
+      DEFAULT_CONFIG,
+      this.hass!
     );
+    if (generation === this._configGeneration) {
+      this._handleNewLovelaceConfig(config);
+    }
   }
 
   private _handleNewLovelaceConfig(lovelaceConfig: LovelaceConfig) {
@@ -390,12 +501,122 @@ export class HcMain extends HassElement {
   }
 
   private _handleShowDemo(_msg: ShowDemoMessage) {
-    import("./hc-demo").then(() => {
-      this._showDemo = true;
-      this._lovelacePath = "overview";
-      this._sendStatus();
-    });
+    void this._showDemoView();
   }
+
+  private async _showDemoView() {
+    const generation = ++this._loadGeneration;
+    this._pendingViewOperationId = undefined;
+    this._expectedViewGeneration = -1;
+    await this._showLoadingScreen(false);
+    if (generation !== this._loadGeneration) {
+      return;
+    }
+    await import("./hc-demo");
+    if (generation !== this._loadGeneration) {
+      return;
+    }
+    this._dashboardLoaded = false;
+    this._showDemo = true;
+    this._lovelacePath = "overview";
+    await this.updateComplete;
+    window.blueHouseCastLoadingScreen?.scheduleReveal();
+    this._sendStatus();
+  }
+
+  private async _handleShowLoadingScreen(msg: ShowLoadingScreenMessage) {
+    const generation = ++this._loadGeneration;
+    this._pendingViewOperationId = undefined;
+    this._expectedViewGeneration = this._viewGeneration;
+    if (
+      (await this._showLoadingScreen(true)) &&
+      generation === this._loadGeneration
+    ) {
+      this._completedOperationId = msg.operationId;
+      this._sendStatus();
+    }
+  }
+
+  private async _handleHideLoadingScreen(msg: HideLoadingScreenMessage) {
+    const generation = ++this._loadGeneration;
+    this._pendingViewOperationId = undefined;
+    this._expectedViewGeneration = this._viewGeneration;
+    if (
+      (await this._hideLoadingScreen()) &&
+      generation === this._loadGeneration
+    ) {
+      this._completedOperationId = msg.operationId;
+      this._sendStatus();
+    }
+  }
+
+  private async _handleUnloadDashboard(msg: UnloadDashboardMessage) {
+    const generation = ++this._loadGeneration;
+    this._pendingViewOperationId = undefined;
+    this._expectedViewGeneration = -1;
+    const covered = await this._showLoadingScreen(true);
+    if (!covered || generation !== this._loadGeneration) {
+      return;
+    }
+    this._configGeneration += 1;
+    this._showDemo = false;
+    this._dashboardLoaded = false;
+    this._error = undefined;
+    this._lovelaceConfig = undefined;
+    this._urlPath = undefined;
+    this._lovelacePath = null;
+    if (this._unsubLovelace) {
+      this._unsubLovelace();
+      this._unsubLovelace = undefined;
+    }
+    await this.updateComplete;
+    if (generation !== this._loadGeneration) return;
+    this._completedOperationId = msg.operationId;
+    this._sendStatus();
+  }
+
+  private async _showLoadingScreen(hold: boolean) {
+    const loadingScreen = window.blueHouseCastLoadingScreen;
+    if (!loadingScreen) {
+      throw new Error("The receiver loading screen is unavailable.");
+    }
+    const completed = await loadingScreen.show(hold);
+    if (completed) {
+      this._loadingScreenVisible = true;
+      this._sendStatus();
+    }
+    return completed;
+  }
+
+  private async _hideLoadingScreen() {
+    const loadingScreen = window.blueHouseCastLoadingScreen;
+    if (!loadingScreen) {
+      throw new Error("The receiver loading screen is unavailable.");
+    }
+    const completed = await loadingScreen.hide();
+    if (completed) {
+      this._loadingScreenVisible = false;
+      this._sendStatus();
+    }
+    return completed;
+  }
+
+  private _handleCastViewChanged = (ev: HASSDomEvent<CastViewChanged>) => {
+    if (
+      ev.detail.renderGeneration !== this._expectedViewGeneration ||
+      !isRequestedLovelaceViewReady(
+        this._lovelaceConfig?.views,
+        this._urlPath,
+        this._lovelacePath,
+        !!this.hass?.connected
+      )
+    ) {
+      return;
+    }
+    this._dashboardLoaded = true;
+    this._sendStatus();
+    window.blueHouseCastLoadingScreen?.scheduleReveal();
+  };
 
   private _getErrorMessage(error: number): string {
     switch (error) {
@@ -420,6 +641,9 @@ export class HcMain extends HassElement {
 }
 
 declare global {
+  interface Window {
+    blueHouseCastLoadingScreen?: ReceiverLoadingScreen;
+  }
   interface HTMLElementTagNameMap {
     "hc-main": HcMain;
   }

@@ -25,16 +25,10 @@
         overflow: hidden;
         background: #000;
         opacity: 1;
-        transition: opacity 650ms cubic-bezier(0.22, 1, 0.36, 1);
       }
 
       #cast-loading-screen[hidden] {
         display: none;
-      }
-
-      #cast-loading-screen.cast-loading-screen--leaving {
-        opacity: 0;
-        pointer-events: none;
       }
 
       #cast-loading-particles {
@@ -42,8 +36,8 @@
         inset: 10%;
         width: 80%;
         height: 80%;
-        opacity: 0.7;
-        pointer-events: none;
+        opacity: 0.3;
+        touch-action: none;
       }
     </style>
     <%= renderTemplate("../../../src/html/_style_base.html.template") %>
@@ -63,81 +57,139 @@
         const reducedMotion = window.matchMedia(
           "(prefers-reduced-motion: reduce)"
         ).matches;
+        if (!loader) {
+          return;
+        }
+
+        const listeners = new Set();
         let animationFrame = 0;
         let revealTimer = 0;
-        let dismissTimer = 0;
-        let finished = false;
-        let resizeParticles = () => {};
-
-        const stopParticles = () => {
-          if (animationFrame) {
-            window.cancelAnimationFrame(animationFrame);
-          }
-          window.removeEventListener("resize", resizeParticles);
-        };
-
-        const hideLoader = () => {
-          if (!loader) {
-            return;
-          }
-          finished = true;
-          window.clearTimeout(revealTimer);
-          window.clearTimeout(dismissTimer);
-          loader.hidden = true;
-          stopParticles();
-        };
-
-        const finishLoading = (animate) => {
-          if (!loader || finished) {
-            return;
-          }
-          finished = true;
-          window.clearTimeout(revealTimer);
-          if (!animate || reducedMotion) {
-            hideLoader();
-            return;
-          }
-          loader.classList.add("cast-loading-screen--leaving");
-          dismissTimer = window.setTimeout(hideLoader, 700);
-        };
-
-        const scheduleReveal = () => {
-          if (!revealTimer) {
-            revealTimer = window.setTimeout(
-              () => finishLoading(true),
-              2000
-            );
-          }
-        };
-        window.addEventListener("cast-view-changed", scheduleReveal, {
-          once: true,
-        });
-        window.addEventListener("cast-loading-ready", scheduleReveal, {
-          once: true,
-        });
-        document.addEventListener(
-          "cast-loading-error",
-          () => {
-            hideLoader();
-          },
-          { once: true }
-        );
-
-        if (!canvas) {
-          return;
-        }
-
-        const context = canvas.getContext("2d");
-        if (!context) {
-          return;
-        }
-
+        let transitionGeneration = 0;
+        let transitionFrame = 0;
+        let finishTransition;
+        let openness = 0;
+        let visible = true;
+        let held = false;
+        let startParticleAnimation = () => {};
         let width = 0;
         let height = 0;
         let lastFrame = 0;
         let particles = [];
+        let pointer;
 
-        resizeParticles = () => {
+        const notifyVisibility = () => {
+          listeners.forEach((listener) => listener(visible));
+        };
+
+        // Mask the whole layer so its particles leave with the black cover.
+        const applyMask = () => {
+          if (openness === 0) {
+            loader.style.maskImage = "none";
+            loader.style.webkitMaskImage = "none";
+            return;
+          }
+          const feather = innerWidth * 0.75;
+          const radius =
+            openness * (Math.hypot(innerWidth / 2, innerHeight / 2) + feather);
+          const inner = radius - feather;
+          const start = Math.max(0, -inner / feather);
+          const stops = Array.from({ length: 49 }, (_, index) => {
+            const t = start + ((1 - start) * index) / 48;
+            const alpha = t * t * t * (t * (t * 6 - 15) + 10);
+            const px = Math.max(0, inner + t * feather);
+            return `rgba(0,0,0,${alpha.toFixed(6)}) ${px.toFixed(2)}px`;
+          });
+          const mask = `radial-gradient(circle at center, ${stops.join(",")})`;
+          loader.style.maskImage = mask;
+          loader.style.webkitMaskImage = mask;
+        };
+
+        const transitionTo = (target, duration) => {
+          if (openness === target && !finishTransition) {
+            return Promise.resolve(true);
+          }
+          const generation = ++transitionGeneration;
+          window.cancelAnimationFrame(transitionFrame);
+          finishTransition?.(false);
+          const from = openness;
+          loader.hidden = false;
+          visible = true;
+          notifyVisibility();
+          if (!reducedMotion && !animationFrame) {
+            animationFrame = window.requestAnimationFrame(
+              startParticleAnimation
+            );
+          }
+
+          return new Promise((resolve) => {
+            const finish = (completed) => {
+              if (generation === transitionGeneration) {
+                finishTransition = undefined;
+              }
+              resolve(completed);
+            };
+            finishTransition = finish;
+            const started = performance.now();
+            const frame = (now) => {
+              if (generation !== transitionGeneration) return;
+              const t = reducedMotion
+                ? 1
+                : Math.min((now - started) / Math.max(1, duration), 1);
+              openness = from + (target - from) * (1 - (1 - t) ** 3);
+              applyMask();
+              if (t < 1) {
+                transitionFrame = window.requestAnimationFrame(frame);
+                return;
+              }
+              visible = target === 0;
+              loader.hidden = !visible;
+              notifyVisibility();
+              finish(true);
+            };
+            if (reducedMotion || from === target) frame(started + duration);
+            else transitionFrame = window.requestAnimationFrame(frame);
+          });
+        };
+
+        const show = (hold = true) => {
+          held = hold;
+          window.clearTimeout(revealTimer);
+          return transitionTo(0, 650);
+        };
+
+        const hide = () => {
+          held = false;
+          window.clearTimeout(revealTimer);
+          return transitionTo(1, 5000);
+        };
+
+        const scheduleReveal = () => {
+          if (held || !visible) {
+            return;
+          }
+          window.clearTimeout(revealTimer);
+          revealTimer = window.setTimeout(() => void hide(), 2000);
+        };
+
+        window.blueHouseCastLoadingScreen = {
+          show,
+          hide,
+          scheduleReveal,
+          subscribe(listener) {
+            listeners.add(listener);
+            listener(visible);
+            return () => listeners.delete(listener);
+          },
+        };
+        window.addEventListener("cast-loading-ready", scheduleReveal);
+        window.addEventListener("cast-loading-error", () => void hide());
+
+        const context = canvas?.getContext("2d");
+        if (!canvas || !context) {
+          return;
+        }
+
+        const resizeParticles = () => {
           const nextWidth = window.innerWidth * 0.8;
           const nextHeight = window.innerHeight * 0.8;
           const scale = Math.min(window.devicePixelRatio || 1, 1.25);
@@ -151,59 +203,142 @@
           canvas.width = Math.round(width * scale);
           canvas.height = Math.round(height * scale);
           context.setTransform(scale, 0, 0, scale, 0, 0);
-          if (reducedMotion && particles.length) {
+          if (particles.length) {
+            createParticleField();
+            lastFrame = 0;
             drawParticles(performance.now());
           }
         };
 
-        const startParticles = () => {
-          if (finished) {
-            return;
-          }
-
-          const colors = [
-            ...Array(60).fill("#E8EEF4"),
-            ...Array(30).fill("#005E88"),
-            ...Array(10).fill("#F58220"),
-          ];
-          for (let index = colors.length - 1; index > 0; index -= 1) {
-            const swap = Math.floor(Math.random() * (index + 1));
-            [colors[index], colors[swap]] = [colors[swap], colors[index]];
-          }
-
-          resizeParticles();
-          particles = colors.map((color) => ({
-            x: Math.random() * width,
-            y: Math.random() * height,
-            dx: (Math.random() - 0.5) * 12,
-            dy: (Math.random() - 0.5) * 12,
-            radius: 0.9 + Math.random() * 1.4,
-            alpha: 0.6 + Math.random() * 0.4,
-            color,
-          }));
-          window.addEventListener("resize", resizeParticles, {
-            passive: true,
+        const createParticles = (count, color, settings) =>
+          Array.from({ length: count }, () => {
+            return {
+              x: Math.random() * width,
+              y: Math.random() * height,
+              vx: Math.random() - 0.5,
+              vy: Math.random() - 0.5,
+              color,
+              radius:
+                settings.minRadius +
+                Math.random() * (settings.maxRadius - settings.minRadius),
+              alpha: settings.animateOpacity ? 0.5 : Math.random() * 0.5,
+              sizeStep: Math.random() * 0.1,
+              opacityStep: Math.random() * 0.01,
+              sizeDirection: -1,
+              opacityDirection: -1,
+              settings,
+            };
           });
-          drawParticles(performance.now());
+
+        const createParticleField = () => {
+          const units = Math.max(
+            10,
+            Math.min(70, Math.round((width * height * 35) / 800000))
+          );
+          particles = [
+            ...createParticles(units * 6, "#E8EEF4", {
+              minRadius: 0.1,
+              maxRadius: 15,
+              animateSize: true,
+              attract: true,
+            }),
+            ...createParticles(units * 3, "#005E88", {
+              minRadius: 0.1,
+              maxRadius: 10,
+              animateOpacity: true,
+              attract: false,
+            }),
+            ...createParticles(units, "#F58220", {
+              minRadius: 0.1,
+              maxRadius: 15,
+              animateSize: true,
+              attract: true,
+            }),
+          ];
         };
 
         const drawParticles = (timestamp) => {
-          if (finished) {
-            return;
-          }
           if (!lastFrame || timestamp - lastFrame >= 40) {
-            const elapsed = lastFrame
-              ? Math.min((timestamp - lastFrame) / 1000, 0.1)
+            const frameScale = lastFrame
+              ? Math.min((timestamp - lastFrame) / (1000 / 60), 6)
               : 0;
             lastFrame = timestamp;
+
+            if (!reducedMotion && frameScale) {
+              particles.forEach((particle) => {
+                particle.x += particle.vx * 0.25 * frameScale;
+                particle.y += particle.vy * 0.25 * frameScale;
+                if (particle.settings.animateSize) {
+                  particle.radius +=
+                    particle.sizeDirection * particle.sizeStep * frameScale;
+                  if (particle.radius >= particle.settings.maxRadius)
+                    particle.sizeDirection = -1;
+                  if (particle.radius <= 0.1) particle.sizeDirection = 1;
+                  particle.radius = Math.max(
+                    0.1,
+                    Math.min(particle.settings.maxRadius, particle.radius)
+                  );
+                }
+                if (particle.settings.animateOpacity) {
+                  particle.alpha +=
+                    particle.opacityDirection *
+                    particle.opacityStep *
+                    frameScale;
+                  if (particle.alpha >= 0.5) particle.opacityDirection = -1;
+                  if (particle.alpha <= 0.1) particle.opacityDirection = 1;
+                  particle.alpha = Math.max(0.1, Math.min(0.5, particle.alpha));
+                }
+                if (
+                  particle.x < particle.radius ||
+                  particle.x > width - particle.radius
+                ) {
+                  particle.vx *= -1;
+                  particle.x = Math.max(
+                    particle.radius,
+                    Math.min(width - particle.radius, particle.x)
+                  );
+                }
+                if (
+                  particle.y < particle.radius ||
+                  particle.y > height - particle.radius
+                ) {
+                  particle.vy *= -1;
+                  particle.y = Math.max(
+                    particle.radius,
+                    Math.min(height - particle.radius, particle.y)
+                  );
+                }
+              });
+
+              const attracting = particles.filter(
+                (particle) => particle.settings.attract
+              );
+              for (let index = 0; index < attracting.length; index += 1) {
+                const particle = attracting[index];
+                for (
+                  let otherIndex = index + 1;
+                  otherIndex < attracting.length;
+                  otherIndex += 1
+                ) {
+                  const other = attracting[otherIndex];
+                  if (other.color !== particle.color) continue;
+                  const dx = other.x - particle.x;
+                  const dy = other.y - particle.y;
+                  const distanceSquared = dx * dx + dy * dy;
+                  if (distanceSquared > 0 && distanceSquared <= 22500) {
+                    const ax = (dx * frameScale) / (3946 * 1000);
+                    const ay = (dy * frameScale) / (158 * 1000);
+                    particle.vx += ax;
+                    particle.vy += ay;
+                    other.vx -= ax;
+                    other.vy -= ay;
+                  }
+                }
+              }
+            }
+
             context.clearRect(0, 0, width, height);
             particles.forEach((particle) => {
-              particle.x += particle.dx * elapsed;
-              particle.y += particle.dy * elapsed;
-              if (particle.x < 0) particle.x += width;
-              if (particle.x > width) particle.x -= width;
-              if (particle.y < 0) particle.y += height;
-              if (particle.y > height) particle.y -= height;
               context.globalAlpha = particle.alpha;
               context.fillStyle = particle.color;
               context.beginPath();
@@ -216,19 +351,63 @@
               );
               context.fill();
             });
+
             context.globalAlpha = 1;
-          }
-          if (!reducedMotion) {
-            animationFrame = window.requestAnimationFrame(drawParticles);
+            if (pointer) {
+              particles.forEach((particle) => {
+                if (particle.color !== "#005E88") {
+                  return;
+                }
+                const dx = pointer.x - particle.x;
+                const dy = pointer.y - particle.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                if (distance < 200) {
+                  context.strokeStyle = `rgba(255, 255, 255, ${
+                    0.2 * (1 - distance / 200)
+                  })`;
+                  context.lineWidth = 1;
+                  context.beginPath();
+                  context.moveTo(particle.x, particle.y);
+                  context.lineTo(pointer.x, pointer.y);
+                  context.stroke();
+                }
+              });
+            }
+            context.globalAlpha = 1;
           }
         };
 
-        startParticles();
+        const animateParticles = (timestamp) => {
+          animationFrame = 0;
+          drawParticles(timestamp);
+          if (!reducedMotion && visible) {
+            animationFrame = window.requestAnimationFrame(animateParticles);
+          }
+        };
+
+        startParticleAnimation = animateParticles;
+        resizeParticles();
+        createParticleField();
+        canvas.addEventListener("pointermove", (event) => {
+          const bounds = canvas.getBoundingClientRect();
+          pointer = {
+            x: event.clientX - bounds.left,
+            y: event.clientY - bounds.top,
+          };
+        });
+        canvas.addEventListener("pointerleave", () => {
+          pointer = undefined;
+        });
+        drawParticles(performance.now());
+        if (!reducedMotion) {
+          animationFrame = window.requestAnimationFrame(animateParticles);
+        }
+        window.addEventListener("resize", resizeParticles, { passive: true });
       })();
     </script>
     <script src="//www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"></script>
     <% for (const entry of latestEntryJS) { %>
-      <script type="module" src="<%= entry %>"></script>
+    <script type="module" src="<%= entry %>"></script>
     <% } %>
   </body>
 </html>

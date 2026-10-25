@@ -25,6 +25,8 @@ class HcLovelace extends LitElement {
 
   @property({ attribute: false }) public urlPath: string | null = null;
 
+  @property({ attribute: false }) public renderGeneration = 0;
+
   protected render(): TemplateResult {
     const index = this._viewIndex;
     if (index === undefined) {
@@ -84,6 +86,7 @@ class HcLovelace extends LitElement {
           this.lovelaceConfig.views[index].path;
 
         fireEvent(this, "cast-view-changed", {
+          renderGeneration: this.renderGeneration,
           title:
             dashboardTitle || viewTitle
               ? `${dashboardTitle || ""}${
@@ -128,6 +131,7 @@ class HcLovelace extends LitElement {
 
 export interface CastViewChanged {
   title: string | undefined;
+  renderGeneration: number;
 }
 
 declare global {

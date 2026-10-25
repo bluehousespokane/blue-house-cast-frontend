@@ -2,7 +2,7 @@ name: Blue House Cast checks and upstream sync
 
 on:
   push:
-    branches: [blue-house]
+    branches: [blue-house, blue-house-cast-splash-ha-20260930-4]
   schedule:
     - cron: "23 7 * * *"
   workflow_dispatch:
@@ -85,8 +85,10 @@ jobs:
       - name: Check customized source
         if: steps.upstream.outputs.check == 'true'
         run: |
-          pnpm exec prettier --check cast/src/receiver/layout/hc-launch-screen.ts cast/src/receiver/layout/hc-main.ts cast/src/receiver/view_ready.ts test/cast/view_ready.test.ts src/cast/const.ts src/cast/sender_messages.ts blue-house/README.md .github/workflows/blue_house_cast.yaml
-          pnpm exec eslint cast/src/receiver/layout/hc-launch-screen.ts cast/src/receiver/layout/hc-main.ts cast/src/receiver/view_ready.ts test/cast/view_ready.test.ts src/cast/const.ts src/cast/sender_messages.ts
+          node blue-house/loading_screen.test.mjs
+          pnpm exec prettier --check cast/src/receiver/entrypoint.ts cast/src/receiver/layout/hc-launch-screen.ts cast/src/receiver/layout/hc-main.ts cast/src/receiver/layout/hc-lovelace.ts cast/src/receiver/view_ready.ts test/cast/view_ready.test.ts src/cast/const.ts src/cast/receiver_messages.ts src/cast/sender_messages.ts blue-house/loading_screen.test.mjs blue-house/README.md .github/workflows/blue_house_cast.yaml
+          pnpm exec prettier --parser html --check cast/src/html/receiver.html.template
+          pnpm exec eslint cast/src/receiver/entrypoint.ts cast/src/receiver/layout/hc-launch-screen.ts cast/src/receiver/layout/hc-main.ts cast/src/receiver/layout/hc-lovelace.ts cast/src/receiver/view_ready.ts test/cast/view_ready.test.ts src/cast/const.ts src/cast/receiver_messages.ts src/cast/sender_messages.ts
           pnpm test test/cast/
       - name: Build the upstream Cast target
         if: steps.upstream.outputs.check == 'true'
