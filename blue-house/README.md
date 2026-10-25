@@ -43,6 +43,7 @@ Use Node from `.nvmrc` and pnpm from `package.json`, then:
 pnpm install --frozen-lockfile
 pnpm test test/cast/
 SKIP_FETCH_NIGHTLY_TRANSLATIONS=1 pnpm exec gulp build-cast
+python3 blue-house/check_receiver_artifact.py cast/dist/receiver.html
 pnpm exec gulp gather-gallery-pages
 pnpm lint:types
 ```
@@ -51,3 +52,6 @@ The environment variable skips an optional interactive translation download;
 the upstream base translations remain. Output is under `cast/dist` and is
 generated runtime material, not source for this branch. The upstream license
 must accompany distributed receiver files.
+
+The Cast build checks that its generated `receiver.html` places the inline
+black startup styles before the external Cast SDK script.

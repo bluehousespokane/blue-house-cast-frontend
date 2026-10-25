@@ -35,6 +35,7 @@ import { castContext } from "../cast_context";
 import "./hc-launch-screen";
 import { getPanelTitleFromUrlPath } from "../../../../src/data/panel";
 import { checkLovelaceConfig } from "../../../../src/panels/lovelace/common/check-lovelace-config";
+import { isRequestedLovelaceViewReady } from "../view_ready";
 
 const DEFAULT_CONFIG: LovelaceDashboardStrategyConfig = {
   strategy: {
@@ -151,16 +152,12 @@ export class HcMain extends HassElement {
       connected: !!this.hass?.connected,
       showDemo: this._showDemo,
       visible: document.visibilityState === "visible",
-      viewReady:
-        !!this._lovelaceConfig &&
-        this._urlPath !== undefined &&
-        !!this.hass?.connected &&
-        this._lovelaceConfig.views.some((view, index) =>
-          this._lovelacePath === null
-            ? index === 0
-            : view.path === this._lovelacePath ||
-              index === Number.parseInt(String(this._lovelacePath), 10)
-        ),
+      viewReady: isRequestedLovelaceViewReady(
+        this._lovelaceConfig?.views,
+        this._urlPath,
+        this._lovelacePath,
+        !!this.hass?.connected
+      ),
     };
 
     if (this.hass) {

@@ -83,8 +83,8 @@ jobs:
       - name: Check customized source
         if: steps.upstream.outputs.check == 'true'
         run: |
-          pnpm exec prettier --check cast/src/receiver/layout/hc-launch-screen.ts cast/src/receiver/layout/hc-main.ts src/cast/const.ts src/cast/sender_messages.ts blue-house/README.md .github/workflows/blue_house_cast.yaml
-          pnpm exec eslint cast/src/receiver/layout/hc-launch-screen.ts cast/src/receiver/layout/hc-main.ts src/cast/const.ts src/cast/sender_messages.ts
+          pnpm exec prettier --check cast/src/receiver/layout/hc-launch-screen.ts cast/src/receiver/layout/hc-main.ts cast/src/receiver/view_ready.ts test/cast/view_ready.test.ts src/cast/const.ts src/cast/sender_messages.ts blue-house/README.md .github/workflows/blue_house_cast.yaml
+          pnpm exec eslint cast/src/receiver/layout/hc-launch-screen.ts cast/src/receiver/layout/hc-main.ts cast/src/receiver/view_ready.ts test/cast/view_ready.test.ts src/cast/const.ts src/cast/sender_messages.ts
           pnpm test test/cast/
       - name: Build the upstream Cast target
         if: steps.upstream.outputs.check == 'true'
@@ -92,6 +92,7 @@ jobs:
           pnpm exec gulp build-cast
           test -s cast/dist/receiver.html
           test -d cast/dist/frontend_latest
+          python3 blue-house/check_receiver_artifact.py cast/dist/receiver.html
           pnpm exec gulp gather-gallery-pages
           pnpm lint:types
           git diff --exit-code
