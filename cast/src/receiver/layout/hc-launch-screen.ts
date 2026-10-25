@@ -1,6 +1,7 @@
-import type { TemplateResult } from "lit";
+import type { PropertyValues, TemplateResult } from "lit";
 import { css, html, LitElement } from "lit";
 import { customElement, property } from "lit/decorators";
+import { fireEvent } from "../../../../src/common/dom/fire_event";
 import type { HomeAssistant } from "../../../../src/types";
 
 @customElement("hc-launch-screen")
@@ -19,6 +20,13 @@ class HcLaunchScreen extends LitElement {
         }
       </div>
     `;
+  }
+
+  protected updated(changedProperties: PropertyValues<this>) {
+    super.updated(changedProperties);
+    if (changedProperties.has("error") && this.error) {
+      fireEvent(this, "cast-loading-error");
+    }
   }
 
   static styles = css`
@@ -42,6 +50,10 @@ class HcLaunchScreen extends LitElement {
 }
 
 declare global {
+  interface HASSDomEvents {
+    "cast-loading-error": undefined;
+  }
+
   interface HTMLElementTagNameMap {
     "hc-launch-screen": HcLaunchScreen;
   }
