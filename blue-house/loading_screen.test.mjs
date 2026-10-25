@@ -33,6 +33,7 @@ test("inline JavaScript cannot collide with Lodash HTML interpolation", () => {
 function receiver({
   reducedMotion = false,
   canvasAvailable = true,
+  animationTimestampOffset = 0,
   width = 1250,
   height = 1000,
 } = {}) {
@@ -121,7 +122,7 @@ function receiver({
       }
       const pending = [...frames.values()];
       frames.clear();
-      for (const callback of pending) callback(now);
+      for (const callback of pending) callback(now + animationTimestampOffset);
       await Promise.resolve();
     }
   };
@@ -308,4 +309,13 @@ test("starts SDK and app loading only after the loading screen can paint", async
   appended[0].onload();
   assert.equal(appended[1].type, "module");
   assert.equal(appended[1].src, "/app.js");
+});
+
+test("uses one execution clock when worker RAF timestamps have a different origin", async () => {
+  const { api, advance } = receiver({ animationTimestampOffset: 28000000 });
+  await advance(1000);
+  const profile = api.getPerformance();
+  assert.ok(profile.particleCount > 3 && profile.particleCount < 30);
+  assert.ok(profile.phases.startup.maxDrawGapMs <= 50);
+  assert.ok(profile.phases.startup.maxFrameMs <= 16);
 });

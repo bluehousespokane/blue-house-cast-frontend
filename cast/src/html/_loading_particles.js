@@ -246,7 +246,10 @@ function createCastParticleRenderer(
     }
   };
 
-  const animate = (timestamp) => {
+  const animate = () => {
+    // Some Cast worker RAF timestamps use a different origin from performance.now().
+    // Use one execution clock for initial draws, callbacks, motion and diagnostics.
+    const timestamp = performance.now();
     animationFrame = 0;
     if (!running) return;
     if (lastAnimationFrame) {
