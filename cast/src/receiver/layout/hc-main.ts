@@ -1,7 +1,7 @@
 import type { UnsubscribeFunc } from "home-assistant-js-websocket";
 import { createConnection, getAuth } from "home-assistant-js-websocket";
 import type { TemplateResult, PropertyValues } from "lit";
-import { html, nothing } from "lit";
+import { css, html, nothing } from "lit";
 import { customElement, state } from "lit/decorators";
 import { keyed } from "lit/directives/keyed";
 import { CAST_NS } from "../../../../src/cast/const";
@@ -16,6 +16,7 @@ import type {
   UnloadDashboardMessage,
 } from "../../../../src/cast/receiver_messages";
 import type {
+  LoadingPerformance,
   ReceiverErrorMessage,
   ReceiverStatusMessage,
 } from "../../../../src/cast/sender_messages";
@@ -55,6 +56,8 @@ interface ReceiverLoadingScreen {
   show(hold?: boolean): Promise<boolean>;
   hide(): Promise<boolean>;
   scheduleReveal(): void;
+  setPhase(phase: "startup" | "mounting" | "mounted" | "unloaded"): void;
+  getPerformance(): LoadingPerformance;
   subscribe(listener: (visible: boolean) => void): () => void;
 }
 
@@ -67,6 +70,22 @@ export class HcMain extends HassElement {
   @state() private _dashboardLoaded = false;
 
   @state() private _viewGeneration = 0;
+
+  @state() private _vignetteSize = 0;
+
+  static styles = css`
+    .vignette {
+      position: fixed;
+      inset: 0;
+      z-index: 2147483646;
+      pointer-events: none;
+      background:
+        linear-gradient(to right, #000, transparent var(--vignette-size)),
+        linear-gradient(to left, #000, transparent var(--vignette-size)),
+        linear-gradient(to bottom, #000, transparent var(--vignette-size)),
+        linear-gradient(to top, #000, transparent var(--vignette-size));
+    }
+  `;
 
   @state() private _lovelaceConfig?: LovelaceConfig;
 
@@ -178,7 +197,15 @@ export class HcMain extends HassElement {
           @config-refresh=${this._generateDefaultLovelaceConfig}
         ></hc-lovelace>
       `
-    )}`;
+    )}${
+      this._vignetteSize > 0
+        ? html`<div
+            class="vignette"
+            aria-hidden="true"
+            style=${`--vignette-size: ${this._vignetteSize}px`}
+          ></div>`
+        : nothing
+    }`;
   }
 
   protected firstUpdated(changedProps: PropertyValues<this>) {
@@ -221,6 +248,8 @@ export class HcMain extends HassElement {
       ),
       loadingScreenVisible: this._loadingScreenVisible,
       dashboardLoaded: this._dashboardLoaded,
+      vignetteSize: this._vignetteSize,
+      loadingPerformance: window.blueHouseCastLoadingScreen?.getPerformance(),
       completedOperationId: this._completedOperationId,
     };
 
@@ -381,6 +410,11 @@ export class HcMain extends HassElement {
     this._showDemo = false;
     this._error = undefined;
     this._dashboardLoaded = false;
+    window.blueHouseCastLoadingScreen?.setPhase("mounting");
+    this._vignetteSize =
+      typeof msg.vignetteSize === "number" && Number.isFinite(msg.vignetteSize)
+        ? Math.max(0, Math.round(msg.vignetteSize))
+        : 0;
     this._viewGeneration = viewGeneration;
     this._lovelacePath = msg.viewPath;
     if (msg.urlPath === "energy") {
@@ -559,6 +593,7 @@ export class HcMain extends HassElement {
       return;
     }
     this._configGeneration += 1;
+    this._vignetteSize = 0;
     this._showDemo = false;
     this._dashboardLoaded = false;
     this._error = undefined;
@@ -571,6 +606,7 @@ export class HcMain extends HassElement {
     }
     await this.updateComplete;
     if (generation !== this._loadGeneration) return;
+    window.blueHouseCastLoadingScreen?.setPhase("unloaded");
     this._completedOperationId = msg.operationId;
     this._sendStatus();
   }
@@ -582,6 +618,10 @@ export class HcMain extends HassElement {
     }
     const completed = await loadingScreen.show(hold);
     if (completed) {
+      // Paint the opaque cover before dashboard teardown and mounting work.
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      });
       this._loadingScreenVisible = true;
       this._sendStatus();
     }
@@ -614,6 +654,7 @@ export class HcMain extends HassElement {
       return;
     }
     this._dashboardLoaded = true;
+    window.blueHouseCastLoadingScreen?.setPhase("mounted");
     this._sendStatus();
     window.blueHouseCastLoadingScreen?.scheduleReveal();
   };

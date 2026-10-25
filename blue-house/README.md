@@ -23,8 +23,8 @@ that every card has rendered successfully.
 
 ## Loading and view changes
 
-The inline canvas draws immediately, without a particle library. Its density
-scales with viewport area and is capped at 700 particles. Counts retain exactly
+The inline canvas draws immediately, without a particle library. SDK and frontend loading start after an initial paint. Its density
+scales with viewport area and is capped at 350 particles, half the previous density. Counts retain approximately
 60% `#E8EEF4`, 30% `#005E88`, and 10% `#F58220`. The 80% canvas and 30% layer
 opacity match the supplied design. Motion uses the original particles.js
 speed calculation, edge bounce, independent blue opacity animation, light and
@@ -32,7 +32,7 @@ orange size animation, light attraction, and blue pointer grab. Drawing pauses
 after the cover is hidden; reduced motion uses a static field.
 
 For every show-view request, the old dashboard stays in place until the cover
-is opaque. The next view mounts with a fresh render generation, including a
+is opaque and has painted. The next view mounts with a fresh render generation, including a
 repeat request for the same view. After its render event, a two-second settle
 allows media and asynchronous cards to start. The cover then reveals the page
 from the viewport center over five seconds, with a 75vw feather and the supplied
@@ -95,3 +95,16 @@ reduced motion, and unavailable canvas. The artifact check separately verifies
 that generated startup styles, the cover, and the bootstrap precede the Cast
 SDK. CI also runs formatting, ESLint, Cast tests, the Cast build, and full
 TypeScript checking for the exact source commit.
+
+The loading transition uses the same five-second circular reveal in reverse,
+with a matching reversed timing curve. Dashboard DOM and video initialize while
+the cover is opaque; hiding the dashboard DOM would postpone that preparation.
+The optional `vignetteSize` message field adds a black edge fade in CSS pixels
+above the dashboard (zero disables it). It resets for each view request and on
+unload, and does not affect the loading screen or Cast media player.
+
+`loadingPerformance` status contains bounded numeric aggregates for startup,
+mounting, mounted, and unloaded phases: animation-frame gaps, frames over 50ms,
+and particle draw time. It includes no dashboard content or network payloads.
+Frame timings measure main-thread scheduling, not GPU presentation or video
+readiness. Drawing is capped at 25fps; animation-frame gaps measure RAF cadence.
