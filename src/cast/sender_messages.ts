@@ -1,7 +1,9 @@
 import type { BaseCastMessage } from "./types";
 
 export interface LoadingPerformance {
+  renderer: "worker" | "main";
   particleCount: number;
+  targetParticleCount: number;
   phases: Partial<
     Record<
       "startup" | "mounting" | "mounted" | "unloaded",
@@ -13,6 +15,7 @@ export interface LoadingPerformance {
         draws: number;
         averageDrawMs: number;
         maxDrawMs: number;
+        maxDrawGapMs: number;
       }
     >
   >;

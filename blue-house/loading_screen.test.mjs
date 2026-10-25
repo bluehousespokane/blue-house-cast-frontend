@@ -7,7 +7,20 @@ const template = readFileSync(
   new URL("../cast/src/html/receiver.html.template", import.meta.url),
   "utf8"
 );
-const bootstrap = template.match(/<script>\s*([\s\S]*?)<\/script>/)[1];
+const particleSource = readFileSync(
+  new URL("../cast/src/html/_loading_particles.js", import.meta.url),
+  "utf8"
+);
+const bootstrap = template
+  .match(/<script>\s*([\s\S]*?)<\/script>/)[1]
+  .replace('<%= renderTemplate("./_loading_particles.js") %>', particleSource)
+  .replace(
+    '<%= renderTemplate("./_loading_screen.js") %>',
+    readFileSync(
+      new URL("../cast/src/html/_loading_screen.js", import.meta.url),
+      "utf8"
+    )
+  );
 
 test("inline JavaScript cannot collide with Lodash HTML interpolation", () => {
   assert.doesNotMatch(
@@ -29,20 +42,25 @@ function receiver({
   const frames = new Map();
   const timers = new Map();
   const draws = [];
+  let frameDraws = [];
   const cover = { style: {}, hidden: false };
   const context = {
     setTransform() {},
-    clearRect() {},
+    clearRect() {
+      frameDraws = [];
+    },
     beginPath() {},
     arc(x, y, radius) {
       this.circle = { x, y, radius };
     },
     fill() {
-      draws.push({
+      const dot = {
         ...this.circle,
         color: this.fillStyle,
         alpha: this.globalAlpha,
-      });
+      };
+      draws.push(dot);
+      frameDraws.push(dot);
     },
     moveTo() {},
     lineTo() {},
@@ -85,6 +103,7 @@ function receiver({
     innerHeight: height,
     document: {
       getElementById: (id) => (id === "cast-loading-screen" ? cover : canvas),
+      addEventListener() {},
     },
     performance: { now: () => now },
     Math: math,
@@ -112,31 +131,51 @@ function receiver({
     draws,
     frames,
     advance,
+    frame: () => frameDraws,
+    stall: (milliseconds) => {
+      now += milliseconds;
+    },
   };
 }
 
-test("draws the requested particle proportions before any asynchronous work", () => {
+test("draws three initial particles synchronously instead of paying for the whole field", () => {
   const { draws, api } = receiver();
-  assert.ok(api);
+  assert.equal(draws.length, 3);
+  assert.equal(api.getPerformance().targetParticleCount, 175);
+  assert.equal(api.getPerformance().particleCount, 3);
+});
+
+test("adds particles gradually and reaches the requested final proportions", async () => {
+  const { api, advance, frame } = receiver();
+  await advance(1000);
+  assert.ok(api.getPerformance().particleCount > 3);
+  assert.ok(api.getPerformance().particleCount < 30);
+  await advance(10000);
+  const draws = frame();
   assert.equal(draws.length, 175);
   assert.equal(draws.filter((dot) => dot.color === "#E8EEF4").length, 105);
   assert.equal(draws.filter((dot) => dot.color === "#005E88").length, 53);
   assert.equal(draws.filter((dot) => dot.color === "#F58220").length, 17);
-  assert.ok(Math.max(...draws.map((dot) => dot.radius)) > 14);
-  assert.ok(
-    draws
-      .filter((dot) => dot.color === "#005E88")
-      .every((dot) => dot.alpha === 0.5)
-  );
+});
+
+test("does not catch up with a particle burst after a long frame", async () => {
+  const { api, advance, stall } = receiver();
+  await advance(200);
+  const before = api.getPerformance().particleCount;
+  stall(1500);
+  await advance(16);
+  assert.equal(api.getPerformance().particleCount, before);
+  await advance(64);
+  assert.ok(api.getPerformance().particleCount <= before + 1);
 });
 
 test("keeps the original slow motion and independent size and opacity animation", async () => {
-  const { draws, advance } = receiver();
-  const blueBefore = draws[105];
+  const { draws, advance, frame } = receiver();
+  const blueBefore = draws[1];
   const whiteBefore = draws[0];
   await advance(1000);
-  const blueAfter = draws.at(-70);
-  const whiteAfter = draws.at(-175);
+  const blueAfter = frame()[1];
+  const whiteAfter = frame()[0];
   assert.ok(Math.abs(blueAfter.x - blueBefore.x) < 8);
   assert.notEqual(blueAfter.x, blueBefore.x);
   assert.notEqual(blueAfter.alpha, blueBefore.alpha);
@@ -194,8 +233,10 @@ test("reduced motion skips animation and canvas failure does not disable the cov
   }
 });
 
-test("scales particle density while capping Google TV work and preserving the palette", () => {
-  const { draws } = receiver({ width: 3840, height: 2160 });
+test("scales particle density while capping Google TV work and preserving the palette", async () => {
+  const { frame, advance } = receiver({ width: 3840, height: 2160 });
+  await advance(20000);
+  const draws = frame();
   assert.equal(draws.length, 350);
   assert.equal(draws.filter((dot) => dot.color === "#E8EEF4").length, 210);
   assert.equal(draws.filter((dot) => dot.color === "#005E88").length, 105);
@@ -241,7 +282,7 @@ test("profiles frame gaps by phase without counting hidden time as animation wor
   assert.ok(profile.phases.mounting.maxFrameMs <= 16);
 });
 
-test("starts SDK and app loading only after the loading screen can paint", () => {
+test("starts SDK and app loading only after the loading screen can paint", async () => {
   const scripts = [...template.matchAll(/<script>\s*([\s\S]*?)<\/script>/g)];
   const startup = scripts[1][1]
     .replace(/<% for[^%]*%>/g, "")
@@ -250,12 +291,14 @@ test("starts SDK and app loading only after the loading screen can paint", () =>
   const frames = [];
   const appended = [];
   runInNewContext(startup, {
+    window: { blueHouseCastLoadingScreen: { ready: Promise.resolve() } },
     requestAnimationFrame: (callback) => frames.push(callback),
     document: {
       createElement: () => ({}),
       body: { appendChild: (element) => appended.push(element) },
     },
   });
+  await Promise.resolve();
   assert.equal(appended.length, 0);
   frames.shift()();
   assert.equal(appended.length, 0);

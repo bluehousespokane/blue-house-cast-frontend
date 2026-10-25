@@ -53,6 +53,7 @@ const DEFAULT_CONFIG: LovelaceDashboardStrategyConfig = {
 let resourcesLoaded = false;
 
 interface ReceiverLoadingScreen {
+  ready: Promise<void>;
   show(hold?: boolean): Promise<boolean>;
   hide(): Promise<boolean>;
   scheduleReveal(): void;

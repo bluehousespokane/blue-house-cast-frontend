@@ -86,7 +86,7 @@ jobs:
         if: steps.upstream.outputs.check == 'true'
         run: |
           node blue-house/loading_screen.test.mjs
-          pnpm exec prettier --check cast/src/receiver/entrypoint.ts cast/src/receiver/layout/hc-launch-screen.ts cast/src/receiver/layout/hc-main.ts cast/src/receiver/layout/hc-lovelace.ts cast/src/receiver/view_ready.ts test/cast/view_ready.test.ts src/cast/const.ts src/cast/receiver_messages.ts src/cast/sender_messages.ts blue-house/loading_screen.test.mjs blue-house/README.md .github/workflows/blue_house_cast.yaml
+          pnpm exec prettier --check cast/src/html/_loading_particles.js cast/src/html/_loading_screen.js cast/src/receiver/entrypoint.ts cast/src/receiver/layout/hc-launch-screen.ts cast/src/receiver/layout/hc-main.ts cast/src/receiver/layout/hc-lovelace.ts cast/src/receiver/view_ready.ts test/cast/view_ready.test.ts src/cast/const.ts src/cast/receiver_messages.ts src/cast/sender_messages.ts blue-house/loading_screen.test.mjs blue-house/README.md .github/workflows/blue_house_cast.yaml
           pnpm exec prettier --parser html --check cast/src/html/receiver.html.template
           pnpm exec eslint cast/src/receiver/entrypoint.ts cast/src/receiver/layout/hc-launch-screen.ts cast/src/receiver/layout/hc-main.ts cast/src/receiver/layout/hc-lovelace.ts cast/src/receiver/view_ready.ts test/cast/view_ready.test.ts src/cast/const.ts src/cast/receiver_messages.ts src/cast/sender_messages.ts
           pnpm test test/cast/
