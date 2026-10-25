@@ -42,8 +42,9 @@ Use Node from `.nvmrc` and pnpm from `package.json`, then:
 ```sh
 pnpm install --frozen-lockfile
 pnpm test test/cast/
-pnpm lint:types
 SKIP_FETCH_NIGHTLY_TRANSLATIONS=1 pnpm exec gulp build-cast
+pnpm exec gulp gather-gallery-pages
+pnpm lint:types
 ```
 
 The environment variable skips an optional interactive translation download;
