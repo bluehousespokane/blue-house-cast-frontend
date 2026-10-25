@@ -59,6 +59,21 @@ export class HcMain extends HassElement {
 
   private _unsubLovelace?: UnsubscribeFunc;
 
+  private _handleVisibilityChange = () => this._sendStatus();
+
+  public connectedCallback() {
+    super.connectedCallback();
+    document.addEventListener("visibilitychange", this._handleVisibilityChange);
+  }
+
+  public disconnectedCallback() {
+    document.removeEventListener(
+      "visibilitychange",
+      this._handleVisibilityChange
+    );
+    super.disconnectedCallback();
+  }
+
   public processIncomingMessage(msg: HassMessage) {
     if (msg.type === "connect") {
       this._handleConnectMessage(msg);
@@ -108,6 +123,7 @@ export class HcMain extends HassElement {
 
   protected firstUpdated(changedProps: PropertyValues<this>) {
     super.firstUpdated(changedProps);
+    this._sendStatus();
     import("./hc-lovelace");
     import("../../../../src/resources/append-ha-style");
 
@@ -132,8 +148,19 @@ export class HcMain extends HassElement {
   private _sendStatus(senderId?: string) {
     const status: ReceiverStatusMessage = {
       type: "receiver_status",
-      connected: !!this.hass,
+      connected: !!this.hass?.connected,
       showDemo: this._showDemo,
+      visible: document.visibilityState === "visible",
+      viewReady:
+        !!this._lovelaceConfig &&
+        this._urlPath !== undefined &&
+        !!this.hass?.connected &&
+        this._lovelaceConfig.views.some((view, index) =>
+          this._lovelacePath === null
+            ? index === 0
+            : view.path === this._lovelacePath ||
+              index === Number.parseInt(String(this._lovelacePath), 10)
+        ),
     };
 
     if (this.hass) {
@@ -362,6 +389,7 @@ export class HcMain extends HassElement {
     this._lovelaceConfig = checkLovelaceConfig(
       lovelaceConfig
     ) as LovelaceConfig;
+    void this.updateComplete.then(() => this._sendStatus());
   }
 
   private _handleShowDemo(_msg: ShowDemoMessage) {

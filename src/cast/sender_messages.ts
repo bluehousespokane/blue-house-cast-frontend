@@ -6,6 +6,8 @@ export interface ReceiverStatusMessage extends BaseCastMessage {
   type: "receiver_status";
   connected: boolean;
   showDemo: boolean;
+  visible?: boolean;
+  viewReady?: boolean;
   hassUrl?: string;
   hassUUID?: string;
   lovelacePath?: string | number | null;
