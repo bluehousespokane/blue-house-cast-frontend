@@ -27,7 +27,7 @@ that every card has rendered successfully.
 
 The black cover appears immediately, without a particle library. SDK and
 frontend loading wait for the first particle draw and an initial paint. Density
-scales with viewport area and is capped at 350 particles. Counts retain approximately
+scales with viewport area and is capped at the original 700 particles. Final counts retain exactly
 60% `#E8EEF4`, 30% `#005E88`, and 10% `#F58220`. The 80% canvas and 30% layer
 opacity match the supplied design. Motion uses the original particles.js
 speed calculation, edge bounce, independent blue opacity animation, light and

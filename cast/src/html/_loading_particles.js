@@ -92,10 +92,11 @@ function createCastParticleRenderer(
     canvas.width = Math.round(width * scale);
     canvas.height = Math.round(height * scale);
     context.setTransform(scale, 0, 0, scale, 0, 0);
-    targetParticleCount = Math.max(
-      50,
-      Math.min(350, Math.round((width * height * 175) / 800000))
+    const densityUnits = Math.max(
+      10,
+      Math.min(70, Math.round((width * height * 35) / 800000))
     );
+    targetParticleCount = densityUnits * 10;
     const light = Math.round(targetParticleCount * 0.6);
     const blue = Math.round(targetParticleCount * 0.3);
     groups = [
