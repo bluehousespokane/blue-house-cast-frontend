@@ -76,6 +76,41 @@
         let lastFrame = 0;
         let particles = [];
         let pointer;
+        let phase = "startup";
+        let lastAnimationFrame = 0;
+        const measurements = {};
+        const measurement = () =>
+          (measurements[phase] ||= {
+            frames: 0,
+            frameMs: 0,
+            maxFrameMs: 0,
+            slowFrames: 0,
+            draws: 0,
+            drawMs: 0,
+            maxDrawMs: 0,
+          });
+        const getPerformance = () => ({
+          particleCount: particles.length,
+          phases: Object.fromEntries(
+            Object.entries(measurements).map(([name, value]) => [
+              name,
+              {
+                frames: value.frames,
+                averageFrameMs:
+                  Math.round(
+                    (value.frameMs / Math.max(1, value.frames)) * 100
+                  ) / 100,
+                maxFrameMs: Math.round(value.maxFrameMs * 100) / 100,
+                slowFrames: value.slowFrames,
+                draws: value.draws,
+                averageDrawMs:
+                  Math.round((value.drawMs / Math.max(1, value.draws)) * 100) /
+                  100,
+                maxDrawMs: Math.round(value.maxDrawMs * 100) / 100,
+              },
+            ])
+          ),
+        });
 
         const notifyVisibility = () => {
           listeners.forEach((listener) => listener(visible));
@@ -119,6 +154,8 @@
           visible = true;
           notifyVisibility();
           if (!reducedMotion && !animationFrame) {
+            lastFrame = 0;
+            lastAnimationFrame = 0;
             animationFrame = window.requestAnimationFrame(
               startParticleAnimation
             );
@@ -138,7 +175,9 @@
               const t = reducedMotion
                 ? 1
                 : Math.min((now - started) / Math.max(1, duration), 1);
-              openness = from + (target - from) * (1 - (1 - t) ** 3);
+              // Closing is the exact time reverse of the opening curve.
+              const progress = target === 0 ? t ** 3 : 1 - (1 - t) ** 3;
+              openness = from + (target - from) * progress;
               applyMask();
               if (t < 1) {
                 transitionFrame = window.requestAnimationFrame(frame);
@@ -157,7 +196,7 @@
         const show = (hold = true) => {
           held = hold;
           window.clearTimeout(revealTimer);
-          return transitionTo(0, 650);
+          return transitionTo(0, 5000);
         };
 
         const hide = () => {
@@ -178,6 +217,17 @@
           show,
           hide,
           scheduleReveal,
+          getPerformance,
+          setPhase(nextPhase) {
+            if (
+              !["startup", "mounting", "mounted", "unloaded"].includes(
+                nextPhase
+              )
+            )
+              return;
+            phase = nextPhase;
+            lastAnimationFrame = 0;
+          },
           subscribe(listener) {
             listeners.add(listener);
             listener(visible);
@@ -234,24 +284,26 @@
           });
 
         const createParticleField = () => {
-          const units = Math.max(
-            10,
-            Math.min(70, Math.round((width * height * 35) / 800000))
+          const count = Math.max(
+            50,
+            Math.min(350, Math.round((width * height * 175) / 800000))
           );
+          const light = Math.round(count * 0.6);
+          const blue = Math.round(count * 0.3);
           particles = [
-            ...createParticles(units * 6, "#E8EEF4", {
+            ...createParticles(light, "#E8EEF4", {
               minRadius: 0.1,
               maxRadius: 15,
               animateSize: true,
               attract: true,
             }),
-            ...createParticles(units * 3, "#005E88", {
+            ...createParticles(blue, "#005E88", {
               minRadius: 0.1,
               maxRadius: 10,
               animateOpacity: true,
               attract: false,
             }),
-            ...createParticles(units, "#F58220", {
+            ...createParticles(count - light - blue, "#F58220", {
               minRadius: 0.1,
               maxRadius: 15,
               animateSize: true,
@@ -262,8 +314,9 @@
 
         const drawParticles = (timestamp) => {
           if (!lastFrame || timestamp - lastFrame >= 40) {
+            const started = performance.now();
             const frameScale = lastFrame
-              ? Math.min((timestamp - lastFrame) / (1000 / 60), 6)
+              ? Math.min((timestamp - lastFrame) / (1000 / 60), 15)
               : 0;
             lastFrame = timestamp;
 
@@ -376,11 +429,26 @@
               });
             }
             context.globalAlpha = 1;
+            const elapsed = performance.now() - started;
+            const stats = measurement();
+            stats.draws += 1;
+            stats.drawMs += elapsed;
+            stats.maxDrawMs = Math.max(stats.maxDrawMs, elapsed);
           }
         };
 
         const animateParticles = (timestamp) => {
           animationFrame = 0;
+          if (!visible) return;
+          if (lastAnimationFrame) {
+            const elapsed = timestamp - lastAnimationFrame;
+            const stats = measurement();
+            stats.frames += 1;
+            stats.frameMs += elapsed;
+            stats.maxFrameMs = Math.max(stats.maxFrameMs, elapsed);
+            if (elapsed > 50) stats.slowFrames += 1;
+          }
+          lastAnimationFrame = timestamp;
           drawParticles(timestamp);
           if (!reducedMotion && visible) {
             animationFrame = window.requestAnimationFrame(animateParticles);
@@ -407,9 +475,23 @@
         window.addEventListener("resize", resizeParticles, { passive: true });
       })();
     </script>
-    <script src="//www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"></script>
-    <% for (const entry of latestEntryJS) { %>
-    <script type="module" src="<%= entry %>"></script>
-    <% } %>
+    <script>
+      // Give the inline loading screen a paint before parsing the SDK and app.
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        const sdk = document.createElement("script");
+        sdk.src = "//www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js";
+        sdk.onload = () => {
+          <% for (const entry of latestEntryJS) { %>
+          {
+            const app = document.createElement("script");
+            app.type = "module";
+            app.src = "<%= entry %>";
+            document.body.appendChild(app);
+          }
+          <% } %>
+        };
+        document.body.appendChild(sdk);
+      }));
+    </script>
   </body>
 </html>

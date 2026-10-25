@@ -118,10 +118,10 @@ function receiver({
 test("draws the requested particle proportions before any asynchronous work", () => {
   const { draws, api } = receiver();
   assert.ok(api);
-  assert.equal(draws.length, 350);
-  assert.equal(draws.filter((dot) => dot.color === "#E8EEF4").length, 210);
-  assert.equal(draws.filter((dot) => dot.color === "#005E88").length, 105);
-  assert.equal(draws.filter((dot) => dot.color === "#F58220").length, 35);
+  assert.equal(draws.length, 175);
+  assert.equal(draws.filter((dot) => dot.color === "#E8EEF4").length, 105);
+  assert.equal(draws.filter((dot) => dot.color === "#005E88").length, 53);
+  assert.equal(draws.filter((dot) => dot.color === "#F58220").length, 17);
   assert.ok(Math.max(...draws.map((dot) => dot.radius)) > 14);
   assert.ok(
     draws
@@ -132,11 +132,11 @@ test("draws the requested particle proportions before any asynchronous work", ()
 
 test("keeps the original slow motion and independent size and opacity animation", async () => {
   const { draws, advance } = receiver();
-  const blueBefore = draws[210];
+  const blueBefore = draws[105];
   const whiteBefore = draws[0];
   await advance(1000);
-  const blueAfter = draws.at(-140);
-  const whiteAfter = draws.at(-350);
+  const blueAfter = draws.at(-70);
+  const whiteAfter = draws.at(-175);
   assert.ok(Math.abs(blueAfter.x - blueBefore.x) < 8);
   assert.notEqual(blueAfter.x, blueBefore.x);
   assert.notEqual(blueAfter.alpha, blueBefore.alpha);
@@ -162,7 +162,7 @@ test("can cover, hold, and reveal repeatedly without a stale timer winning", asy
   await advance(5100);
   assert.equal(await firstReveal, true);
   const show = api.show(true);
-  await advance(700);
+  await advance(5100);
   assert.equal(await show, true);
   assert.equal(cover.style.maskImage, "none");
   api.scheduleReveal();
@@ -171,7 +171,7 @@ test("can cover, hold, and reveal repeatedly without a stale timer winning", asy
   const interrupted = api.hide();
   await advance(1000);
   const coverAgain = api.show(true);
-  await advance(700);
+  await advance(5100);
   assert.equal(await interrupted, false);
   assert.equal(await coverAgain, true);
   await advance(6000);
@@ -196,8 +196,73 @@ test("reduced motion skips animation and canvas failure does not disable the cov
 
 test("scales particle density while capping Google TV work and preserving the palette", () => {
   const { draws } = receiver({ width: 3840, height: 2160 });
-  assert.equal(draws.length, 700);
-  assert.equal(draws.filter((dot) => dot.color === "#E8EEF4").length, 420);
-  assert.equal(draws.filter((dot) => dot.color === "#005E88").length, 210);
-  assert.equal(draws.filter((dot) => dot.color === "#F58220").length, 70);
+  assert.equal(draws.length, 350);
+  assert.equal(draws.filter((dot) => dot.color === "#E8EEF4").length, 210);
+  assert.equal(draws.filter((dot) => dot.color === "#005E88").length, 105);
+  assert.equal(draws.filter((dot) => dot.color === "#F58220").length, 35);
+});
+
+test("covering follows the exact time reverse of the circular reveal", async () => {
+  const { api, cover, advance } = receiver();
+  const opening = api.hide();
+  await advance(1000);
+  const openingMask = cover.style.maskImage;
+  await advance(4000);
+  assert.equal(await opening, true);
+  const closing = api.show();
+  await advance(4000);
+  assert.equal(cover.style.maskImage, openingMask);
+  await advance(1000);
+  assert.equal(await closing, true);
+  assert.equal(cover.style.maskImage, "none");
+});
+
+test("profiles frame gaps by phase without counting hidden time as animation work", async () => {
+  const { api, advance } = receiver();
+  await advance(200);
+  api.setPhase("mounting");
+  await advance(200);
+  const hide = api.hide();
+  await advance(5000);
+  await hide;
+  const before = api.getPerformance();
+  await advance(10000);
+  assert.deepEqual(api.getPerformance(), before);
+  const show = api.show();
+  await advance(5000);
+  await show;
+  api.setPhase("unloaded");
+  await advance(200);
+  const profile = api.getPerformance();
+  assert.equal(profile.particleCount, 175);
+  assert.ok(profile.phases.startup.frames > 0);
+  assert.ok(profile.phases.mounting.draws > 0);
+  assert.ok(profile.phases.unloaded.frames > 0);
+  assert.ok(profile.phases.mounting.maxFrameMs <= 16);
+});
+
+test("starts SDK and app loading only after the loading screen can paint", () => {
+  const scripts = [...template.matchAll(/<script>\s*([\s\S]*?)<\/script>/g)];
+  const startup = scripts[1][1]
+    .replace(/<% for[^%]*%>/g, "")
+    .replace(/<% } %>/g, "")
+    .replace(/<%= entry %>/g, "/app.js");
+  const frames = [];
+  const appended = [];
+  runInNewContext(startup, {
+    requestAnimationFrame: (callback) => frames.push(callback),
+    document: {
+      createElement: () => ({}),
+      body: { appendChild: (element) => appended.push(element) },
+    },
+  });
+  assert.equal(appended.length, 0);
+  frames.shift()();
+  assert.equal(appended.length, 0);
+  frames.shift()();
+  assert.equal(appended.length, 1);
+  assert.match(appended[0].src, /cast_receiver_framework.js$/);
+  appended[0].onload();
+  assert.equal(appended[1].type, "module");
+  assert.equal(appended[1].src, "/app.js");
 });

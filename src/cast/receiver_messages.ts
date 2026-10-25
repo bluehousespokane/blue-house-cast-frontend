@@ -26,6 +26,7 @@ export interface ShowLovelaceViewMessage extends BaseCastMessage {
   urlPath: string | null;
   hassUrl: string;
   hassUUID?: string;
+  vignetteSize?: number;
   operationId?: string;
 }
 

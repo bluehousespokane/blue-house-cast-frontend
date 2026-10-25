@@ -1,5 +1,23 @@
 import type { BaseCastMessage } from "./types";
 
+export interface LoadingPerformance {
+  particleCount: number;
+  phases: Partial<
+    Record<
+      "startup" | "mounting" | "mounted" | "unloaded",
+      {
+        frames: number;
+        averageFrameMs: number;
+        maxFrameMs: number;
+        slowFrames: number;
+        draws: number;
+        averageDrawMs: number;
+        maxDrawMs: number;
+      }
+    >
+  >;
+}
+
 // Messages to be processed inside the Home Assistant UI
 
 export interface ReceiverStatusMessage extends BaseCastMessage {
@@ -10,6 +28,8 @@ export interface ReceiverStatusMessage extends BaseCastMessage {
   viewReady?: boolean;
   loadingScreenVisible?: boolean;
   dashboardLoaded?: boolean;
+  vignetteSize?: number;
+  loadingPerformance?: LoadingPerformance;
   completedOperationId?: string;
   hassUrl?: string;
   hassUUID?: string;
