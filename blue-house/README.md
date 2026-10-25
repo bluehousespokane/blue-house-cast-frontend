@@ -7,8 +7,10 @@ commits; builds do not rewrite upstream files.
 The receiver-specific changes are limited to:
 
 - `src/cast/const.ts`: the registered application ID and message namespace.
-- `cast/src/html/receiver.html.template`: inline black cover, particles, and
-  circular reveal before any external scripts load.
+- `cast/src/html/receiver.html.template`, `_loading_particles.js`, and
+  `_loading_screen.js`: inline black cover, shared particle renderer, and
+  circular reveal before any external scripts load. The ordinary template
+  includes inline these checked-in sources; there is no additional loader request.
 - `cast/src/receiver/layout/hc-launch-screen.ts`: a black waiting screen that
   still displays connection errors.
 - `cast/src/receiver/layout/hc-main.ts`, `hc-lovelace.ts`, and
@@ -23,8 +25,9 @@ that every card has rendered successfully.
 
 ## Loading and view changes
 
-The inline canvas draws immediately, without a particle library. SDK and frontend loading start after an initial paint. Its density
-scales with viewport area and is capped at 350 particles, half the previous density. Counts retain approximately
+The black cover appears immediately, without a particle library. SDK and
+frontend loading wait for the first particle draw and an initial paint. Density
+scales with viewport area and is capped at 350 particles. Counts retain approximately
 60% `#E8EEF4`, 30% `#005E88`, and 10% `#F58220`. The 80% canvas and 30% layer
 opacity match the supplied design. Motion uses the original particles.js
 speed calculation, edge bounce, independent blue opacity animation, light and
@@ -37,7 +40,7 @@ repeat request for the same view. After its render event, a two-second settle
 allows media and asynchronous cards to start. The cover then reveals the page
 from the viewport center over five seconds, with a 75vw feather and the supplied
 smootherstep alpha profile. The whole cover is masked so particles disappear
-with the black layer. Covering uses the reverse circle over 650 ms. Reduced
+with the black layer. Covering uses the same five-second circle in reverse. Reduced
 motion completes both transitions immediately.
 
 `show_loading_screen` holds the opaque cover without removing the dashboard.
@@ -108,3 +111,26 @@ mounting, mounted, and unloaded phases: animation-frame gaps, frames over 50ms,
 and particle draw time. It includes no dashboard content or network payloads.
 Frame timings measure main-thread scheduling, not GPU presentation or video
 readiness. Drawing is capped at 25fps; animation-frame gaps measure RAF cadence.
+
+## Particle scheduling
+
+A fresh receiver starts with three active particles. After three healthy
+animation callbacks, each particle draw can add at most one more. A callback
+gap above 40ms suspends growth until callbacks recover; elapsed time never
+causes a catch-up burst. Only active particles participate in drawing and
+attraction. Final color counts retain the requested proportions. Reduced
+motion draws the complete static field.
+
+The renderer transfers the canvas to a Blob worker when OffscreenCanvas and
+worker animation frames are available. SDK/frontend execution can then block
+the page thread without also blocking particle updates. One self-contained
+renderer function serves both worker and main-thread fallback; simulation code
+is not duplicated. Unsupported, failed, or stalled worker startup falls back
+to a fresh main-thread canvas. Worker readiness is bounded at 1.5 seconds.
+Drawing pauses while the cover or document is hidden and resumes without
+counting hidden time as a frame gap. Workers terminate on page teardown.
+
+Status includes `renderer`, active and target particle counts, and maximum draw
+callback gap as well as the existing per-phase measurements. Worker counters
+measure worker callbacks and drawing submission, not presented display frames.
+Use the Cast DevTools socket through ADB to inspect actual startup frame traces.
