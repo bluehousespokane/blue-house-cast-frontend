@@ -9,6 +9,14 @@ const template = readFileSync(
 );
 const bootstrap = template.match(/<script>\s*([\s\S]*?)<\/script>/)[1];
 
+test("inline JavaScript cannot collide with Lodash HTML interpolation", () => {
+  assert.doesNotMatch(
+    bootstrap,
+    /\$\{/,
+    "Lodash interprets JavaScript template expressions while generating HTML"
+  );
+});
+
 function receiver({
   reducedMotion = false,
   canvasAvailable = true,
