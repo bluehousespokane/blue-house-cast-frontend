@@ -32,6 +32,7 @@ export interface ReceiverStatusMessage extends BaseCastMessage {
   loadingScreenVisible?: boolean;
   dashboardLoaded?: boolean;
   vignetteSize?: number;
+  brightnessPct?: number;
   loadingPerformance?: LoadingPerformance;
   completedOperationId?: string;
   hassUrl?: string;

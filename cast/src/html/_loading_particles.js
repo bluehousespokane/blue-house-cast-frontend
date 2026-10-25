@@ -10,6 +10,7 @@ function createCastParticleRenderer(
   const reducedMotion = options.reducedMotion;
   let width = 0;
   let height = 0;
+  let edgePadding = 0;
   let particles = [];
   let groups = [];
   let targetParticleCount = 0;
@@ -54,20 +55,29 @@ function createCastParticleRenderer(
       ])
     ),
   });
-  const createParticle = (group) => ({
-    x: Math.random() * width,
-    y: Math.random() * height,
-    vx: Math.random() - 0.5,
-    vy: Math.random() - 0.5,
-    color: group.color,
-    radius: 0.1 + Math.random() * (group.settings.maxRadius - 0.1),
-    alpha: group.settings.animateOpacity ? 0.5 : Math.random() * 0.5,
-    sizeStep: Math.random() * 0.1,
-    opacityStep: Math.random() * 0.01,
-    sizeDirection: -1,
-    opacityDirection: -1,
-    settings: group.settings,
-  });
+  const randomWithin = (extent, inset) => {
+    const minimum = Math.min(inset, extent / 2);
+    const maximum = Math.max(extent - inset, extent / 2);
+    return minimum + Math.random() * (maximum - minimum);
+  };
+  const createParticle = (group) => {
+    const radius = 0.1 + Math.random() * (group.settings.maxRadius - 0.1);
+    const spawnInset = edgePadding + group.settings.maxRadius;
+    return {
+      x: randomWithin(width, spawnInset),
+      y: randomWithin(height, spawnInset),
+      vx: Math.random() - 0.5,
+      vy: Math.random() - 0.5,
+      color: group.color,
+      radius,
+      alpha: group.settings.animateOpacity ? 0.5 : Math.random() * 0.5,
+      sizeStep: Math.random() * 0.1,
+      opacityStep: Math.random() * 0.01,
+      sizeDirection: -1,
+      opacityDirection: -1,
+      settings: group.settings,
+    };
+  };
   const addParticle = () => {
     if (particles.length >= targetParticleCount) return;
     // Largest proportional deficit interleaves the palette while retaining exact final counts.
@@ -88,6 +98,9 @@ function createCastParticleRenderer(
   const resize = (size) => {
     width = size.width;
     height = size.height;
+    edgePadding = Number.isFinite(size.edgePadding)
+      ? Math.max(0, size.edgePadding)
+      : 0;
     const scale = size.scale;
     canvas.width = Math.round(width * scale);
     canvas.height = Math.round(height * scale);
@@ -159,24 +172,22 @@ function createCastParticleRenderer(
             if (particle.alpha <= 0.1) particle.opacityDirection = 1;
             particle.alpha = Math.max(0.1, Math.min(0.5, particle.alpha));
           }
-          if (
-            particle.x < particle.radius ||
-            particle.x > width - particle.radius
-          ) {
+          const minX = Math.min(edgePadding + particle.radius, width / 2);
+          const maxX = Math.max(width - edgePadding - particle.radius, width / 2);
+          const minY = Math.min(edgePadding + particle.radius, height / 2);
+          const maxY = Math.max(height - edgePadding - particle.radius, height / 2);
+          if (particle.x < minX || particle.x > maxX) {
             particle.vx *= -1;
             particle.x = Math.max(
-              particle.radius,
-              Math.min(width - particle.radius, particle.x)
+              minX,
+              Math.min(maxX, particle.x)
             );
           }
-          if (
-            particle.y < particle.radius ||
-            particle.y > height - particle.radius
-          ) {
+          if (particle.y < minY || particle.y > maxY) {
             particle.vy *= -1;
             particle.y = Math.max(
-              particle.radius,
-              Math.min(height - particle.radius, particle.y)
+              minY,
+              Math.min(maxY, particle.y)
             );
           }
         });

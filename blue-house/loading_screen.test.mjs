@@ -45,6 +45,11 @@ function receiver({
   const draws = [];
   let frameDraws = [];
   const cover = { style: {}, hidden: false };
+  const brightnessOverlay = {
+    style: { opacity: "0" },
+    addEventListener() {},
+    removeEventListener() {},
+  };
   const context = {
     setTransform() {},
     clearRect() {
@@ -103,7 +108,11 @@ function receiver({
     innerWidth: width,
     innerHeight: height,
     document: {
-      getElementById: (id) => (id === "cast-loading-screen" ? cover : canvas),
+      getElementById: (id) => {
+        if (id === "cast-loading-screen") return cover;
+        if (id === "cast-brightness-overlay") return brightnessOverlay;
+        return canvas;
+      },
       addEventListener() {},
     },
     performance: { now: () => now },
@@ -129,6 +138,7 @@ function receiver({
   return {
     api: window.blueHouseCastLoadingScreen,
     cover,
+    brightnessOverlay,
     draws,
     frames,
     advance,
@@ -142,7 +152,7 @@ function receiver({
 test("draws three initial particles synchronously instead of paying for the whole field", () => {
   const { draws, api } = receiver();
   assert.equal(draws.length, 3);
-  assert.equal(api.getPerformance().targetParticleCount, 350);
+  assert.equal(api.getPerformance().targetParticleCount, 550);
   assert.equal(api.getPerformance().particleCount, 3);
 });
 
@@ -151,12 +161,27 @@ test("adds particles gradually and reaches the requested final proportions", asy
   await advance(1000);
   assert.ok(api.getPerformance().particleCount > 3);
   assert.ok(api.getPerformance().particleCount < 30);
-  await advance(20000);
+  await advance(28000);
   const draws = frame();
-  assert.equal(draws.length, 350);
-  assert.equal(draws.filter((dot) => dot.color === "#E8EEF4").length, 210);
-  assert.equal(draws.filter((dot) => dot.color === "#005E88").length, 105);
-  assert.equal(draws.filter((dot) => dot.color === "#F58220").length, 35);
+  assert.equal(draws.length, 550);
+  assert.equal(draws.filter((dot) => dot.color === "#E8EEF4").length, 330);
+  assert.equal(draws.filter((dot) => dot.color === "#005E88").length, 165);
+  assert.equal(draws.filter((dot) => dot.color === "#F58220").length, 55);
+});
+
+test("fills the viewport while keeping each particle and its radius inside the safe edge", async () => {
+  const edgePadding = 24;
+  const { api, advance, frame } = receiver({ width: 960, height: 540 });
+  assert.equal(api.getPerformance().targetParticleCount, 230);
+  await advance(4000);
+  const draws = frame();
+  assert.ok(draws.length > 3);
+  for (const particle of draws) {
+    assert.ok(particle.x - particle.radius >= edgePadding);
+    assert.ok(particle.x + particle.radius <= 960 - edgePadding);
+    assert.ok(particle.y - particle.radius >= edgePadding);
+    assert.ok(particle.y + particle.radius <= 540 - edgePadding);
+  }
 });
 
 test("does not catch up with a particle burst after a long frame", async () => {
@@ -234,9 +259,40 @@ test("reduced motion skips animation and canvas failure does not disable the cov
   }
 });
 
+test("animates brightness, reports its target, and cancels an interrupted transition", async () => {
+  const { api, advance, brightnessOverlay } = receiver();
+  assert.equal(api.getBrightness(), 100);
+  assert.equal(await api.setBrightness(101), false);
+  assert.equal(brightnessOverlay.style.opacity, "0");
+
+  const first = api.setBrightness(30);
+  assert.equal(api.getBrightness(), 30);
+  assert.equal(brightnessOverlay.style.opacity, "0.7");
+  await advance(200);
+  const second = api.setBrightness(60);
+  assert.equal(await first, false);
+  assert.equal(api.getBrightness(), 60);
+  assert.equal(brightnessOverlay.style.opacity, "0.4");
+  await advance(699);
+  await advance(51);
+  assert.equal(await second, true);
+  assert.equal(await api.setBrightness(60), true);
+});
+
+test("applies brightness immediately when reduced motion is enabled", async () => {
+  const { api, brightnessOverlay, frames } = receiver({ reducedMotion: true });
+  assert.equal(await api.setBrightness(25), true);
+  assert.equal(api.getBrightness(), 25);
+  assert.equal(brightnessOverlay.style.opacity, "0.75");
+  assert.equal(frames.size, 0);
+});
+
 test("scales particle density while capping Google TV work and preserving the palette", async () => {
-  const { frame, advance } = receiver({ width: 3840, height: 2160 });
-  await advance(40000);
+  const { frame } = receiver({
+    reducedMotion: true,
+    width: 3840,
+    height: 2160,
+  });
   const draws = frame();
   assert.equal(draws.length, 700);
   assert.equal(draws.filter((dot) => dot.color === "#E8EEF4").length, 420);
@@ -276,8 +332,8 @@ test("profiles frame gaps by phase without counting hidden time as animation wor
   api.setPhase("unloaded");
   await advance(200);
   const profile = api.getPerformance();
-  assert.equal(profile.targetParticleCount, 350);
-  assert.ok(profile.particleCount > 3 && profile.particleCount <= 350);
+  assert.equal(profile.targetParticleCount, 550);
+  assert.ok(profile.particleCount > 3 && profile.particleCount <= 550);
   assert.ok(profile.phases.startup.frames > 0);
   assert.ok(profile.phases.mounting.draws > 0);
   assert.ok(profile.phases.unloaded.frames > 0);

@@ -10,6 +10,7 @@ import type {
   GetStatusMessage,
   HassMessage,
   HideLoadingScreenMessage,
+  SetBrightnessMessage,
   ShowDemoMessage,
   ShowLovelaceViewMessage,
   ShowLoadingScreenMessage,
@@ -59,6 +60,8 @@ interface ReceiverLoadingScreen {
   scheduleReveal(): void;
   setPhase(phase: "startup" | "mounting" | "mounted" | "unloaded"): void;
   getPerformance(): LoadingPerformance;
+  setBrightness(value: number): Promise<boolean>;
+  getBrightness(): number;
   subscribe(listener: (visible: boolean) => void): () => void;
 }
 
@@ -73,6 +76,8 @@ export class HcMain extends HassElement {
   @state() private _viewGeneration = 0;
 
   @state() private _vignetteSize = 0;
+
+  private _brightnessPct = 100;
 
   static styles = css`
     .vignette {
@@ -156,6 +161,8 @@ export class HcMain extends HassElement {
       this._handleHideLoadingScreen(msg);
     } else if (msg.type === "unload_dashboard") {
       this._handleUnloadDashboard(msg);
+    } else if (msg.type === "set_brightness") {
+      this._handleSetBrightness(msg);
     } else {
       // eslint-disable-next-line no-console
       console.warn("unknown msg type", msg);
@@ -250,6 +257,7 @@ export class HcMain extends HassElement {
       loadingScreenVisible: this._loadingScreenVisible,
       dashboardLoaded: this._dashboardLoaded,
       vignetteSize: this._vignetteSize,
+      brightnessPct: this._brightnessPct,
       loadingPerformance: window.blueHouseCastLoadingScreen?.getPerformance(),
       completedOperationId: this._completedOperationId,
     };
@@ -403,8 +411,20 @@ export class HcMain extends HassElement {
     const viewGeneration = this._viewGeneration + 1;
     this._expectedViewGeneration = viewGeneration;
     this._pendingViewOperationId = msg.operationId;
-    const covered = await this._showLoadingScreen(false);
-    if (!covered || generation !== this._loadGeneration) {
+    const coverTransition = this._showLoadingScreen(false);
+    const brightnessTransition =
+      msg.brightnessPct === undefined
+        ? Promise.resolve(true)
+        : this._setBrightness(msg.brightnessPct);
+    const [covered, brightnessChanged] = await Promise.all([
+      coverTransition,
+      brightnessTransition,
+    ]);
+    if (
+      !covered ||
+      !brightnessChanged ||
+      generation !== this._loadGeneration
+    ) {
       return;
     }
 
@@ -570,6 +590,26 @@ export class HcMain extends HassElement {
       this._completedOperationId = msg.operationId;
       this._sendStatus();
     }
+  }
+
+  private async _handleSetBrightness(msg: SetBrightnessMessage) {
+    if (await this._setBrightness(msg.brightnessPct)) {
+      this._completedOperationId = msg.operationId;
+      this._sendStatus();
+    }
+  }
+
+  private async _setBrightness(value: number) {
+    const loadingScreen = window.blueHouseCastLoadingScreen;
+    if (!loadingScreen) {
+      throw new Error("The receiver brightness layer is unavailable.");
+    }
+    const completed = await loadingScreen.setBrightness(value);
+    if (completed) {
+      this._brightnessPct = loadingScreen.getBrightness();
+      this._sendStatus();
+    }
+    return completed;
   }
 
   private async _handleHideLoadingScreen(msg: HideLoadingScreenMessage) {
