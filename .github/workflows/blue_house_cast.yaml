@@ -3,6 +3,8 @@ name: Blue House Cast checks and upstream sync
 on:
   push:
     branches: [blue-house]
+  schedule:
+    - cron: '23 7 * * *'
   workflow_dispatch:
     inputs:
       sync_upstream:

@@ -19,14 +19,15 @@ that every card has rendered successfully.
 
 ## Upstream updates
 
-The **Blue House Cast checks and upstream sync** workflow supports manual
-dispatch and a daily release schedule. The schedule is enabled only after a
-manual upstream merge has passed. When enabled, it checks the latest published,
-non-prerelease frontend release, merges it into a candidate checkout, runs
-formatting, focused Cast tests, TypeScript checks, and the Cast production
-build, then advances `blue-house` only after success. It never forces a merge.
-Conflicts or validation failures leave the branch unchanged and fail the
-workflow for review.
+The **Blue House Cast checks and upstream sync** workflow runs daily and
+supports manual dispatch. The daily schedule was enabled after a successful
+manual merge of frontend release `20260930.5`. Each run checks the
+latest published stable frontend release, merges it into a candidate checkout,
+runs formatting, focused Cast tests, TypeScript checks, and the Cast production
+build, then advances `blue-house` only after success. The exact validated
+commit receives the `blue-house-cast/build` status used by the deployment
+repository. Conflicts or validation failures leave the branch unchanged and
+fail the workflow for review.
 
 Run the workflow manually with `sync_upstream` enabled to request the same
 update. Without that option it validates the selected branch as-is.
