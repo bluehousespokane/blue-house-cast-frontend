@@ -4,7 +4,7 @@ on:
   push:
     branches: [blue-house]
   schedule:
-    - cron: '23 7 * * *'
+    - cron: "23 7 * * *"
   workflow_dispatch:
     inputs:
       sync_upstream:
