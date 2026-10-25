@@ -53,6 +53,9 @@ if 'id="cast-loading-screen"' not in before_cast_sdk:
 if 'id="cast-loading-particles"' not in before_cast_sdk:
     raise SystemExit("the loading particles must be present before the Cast SDK")
 
+if 'id="cast-brightness-overlay"' not in before_cast_sdk:
+    raise SystemExit("the brightness overlay must be present before the Cast SDK")
+
 if "cast-loading-spinner" in before_cast_sdk:
     raise SystemExit(
         "the particle field is the loading indicator; do not add a second spinner"

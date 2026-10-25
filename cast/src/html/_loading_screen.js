@@ -1,5 +1,10 @@
+const PARTICLE_EDGE_PADDING = 24;
+
 (() => {
   const loader = document.getElementById("cast-loading-screen");
+  const brightnessOverlay = document.getElementById(
+    "cast-brightness-overlay"
+  );
   let canvas = document.getElementById("cast-loading-particles");
   const reducedMotion = window.matchMedia(
     "(prefers-reduced-motion: reduce)"
@@ -17,6 +22,10 @@
   let visible = true;
   let held = false;
   let particlePhase = "startup";
+  let brightnessPct = 100;
+  let brightnessGeneration = 0;
+  let finishBrightnessTransition;
+  let brightnessTransitionPromise = Promise.resolve(true);
   let renderer;
   let worker;
   let particlePerformance = {
@@ -35,6 +44,50 @@
   };
   const getPerformance = () =>
     renderer?.getPerformance() || particlePerformance;
+
+  const setBrightness = (value) => {
+    if (
+      !brightnessOverlay ||
+      !Number.isInteger(value) ||
+      value < 0 ||
+      value > 100
+    ) {
+      return Promise.resolve(false);
+    }
+    if (value === brightnessPct) {
+      return brightnessTransitionPromise;
+    }
+
+    const generation = ++brightnessGeneration;
+    finishBrightnessTransition?.(false);
+    brightnessPct = value;
+
+    brightnessTransitionPromise = new Promise((resolve) => {
+      let timeout = 0;
+      const finish = (completed) => {
+        brightnessOverlay.removeEventListener("transitionend", onEnd);
+        window.clearTimeout(timeout);
+        if (generation === brightnessGeneration) {
+          finishBrightnessTransition = undefined;
+        }
+        resolve(completed);
+      };
+      const onEnd = (event) => {
+        if (event.target === brightnessOverlay && event.propertyName === "opacity") {
+          finish(true);
+        }
+      };
+      brightnessOverlay.addEventListener("transitionend", onEnd);
+      finishBrightnessTransition = finish;
+      brightnessOverlay.style.opacity = String((100 - value) / 100);
+      if (reducedMotion) {
+        finish(true);
+        return;
+      }
+      timeout = window.setTimeout(() => finish(true), 750);
+    });
+    return brightnessTransitionPromise;
+  };
 
   const notifyVisibility = () => {
     listeners.forEach((listener) => listener(visible));
@@ -138,6 +191,8 @@
     scheduleReveal,
     ready,
     getPerformance,
+    setBrightness,
+    getBrightness: () => brightnessPct,
     setPhase(nextPhase) {
       particlePhase = nextPhase;
       sendParticles("setPhase", nextPhase);
@@ -156,8 +211,9 @@
     return;
   }
   const dimensions = () => ({
-    width: innerWidth * 0.8,
-    height: innerHeight * 0.8,
+    width: innerWidth,
+    height: innerHeight,
+    edgePadding: PARTICLE_EDGE_PADDING,
     scale: Math.min(window.devicePixelRatio || 1, 1.25),
     reducedMotion,
   });

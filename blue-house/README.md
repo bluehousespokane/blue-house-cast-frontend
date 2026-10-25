@@ -26,10 +26,12 @@ that every card has rendered successfully.
 ## Loading and view changes
 
 The black cover appears immediately, without a particle library. SDK and
-frontend loading wait for the first particle draw and an initial paint. Density
-scales with viewport area and is capped at the original 700 particles. Final counts retain exactly
-60% `#E8EEF4`, 30% `#005E88`, and 10% `#F58220`. The 80% canvas and 30% layer
-opacity match the supplied design. Motion uses the original particles.js
+frontend loading wait for the first particle draw and an initial paint. The
+canvas fills the viewport; particles spawn and bounce at least 24 CSS pixels
+from the edges, including their current radius. Density scales with viewport
+area and is capped at the original 700 particles. Final counts retain exactly
+60% `#E8EEF4`, 30% `#005E88`, and 10% `#F58220`. The canvas keeps its 30% layer
+opacity. Motion uses the original particles.js
 speed calculation, edge bounce, independent blue opacity animation, light and
 orange size animation, light attraction, and blue pointer grab. Drawing pauses
 after the cover is hidden; reduced motion uses a static field.
@@ -51,6 +53,14 @@ normally. An optional `operationId` is echoed as `completedOperationId` only
 when that command's required transition has completed, preventing an earlier
 status from acknowledging a new action. Ordinary upstream messages remain
 supported without an operation ID.
+
+The optional `brightnessPct` field on `show_lovelace_view` changes the target
+brightness during the cover transition; omitting it preserves the current
+level. The additive `set_brightness` message changes the current level without
+swapping the dashboard and acknowledges completion after the fade. Brightness
+persists across dashboard swaps and unloads within the same Cast app session,
+and returns to 100% when the receiver is relaunched. A topmost black overlay
+dims video, dashboard content, vignette, and loading particles together.
 
 ## Upstream updates
 
@@ -111,6 +121,11 @@ mounting, mounted, and unloaded phases: animation-frame gaps, frames over 50ms,
 and particle draw time. It includes no dashboard content or network payloads.
 Frame timings measure renderer scheduling, not GPU presentation or video
 readiness. Drawing is capped at 25fps; animation-frame gaps measure RAF cadence.
+
+Brightness uses a black, pointer-transparent overlay above the dashboard,
+vignette, and loading screen. Its opacity animates over 600ms, so background
+video and particles are dimmed together. Full brightness is 100%; zero is black.
+Reduced motion disables the brightness animation.
 
 ## Particle scheduling
 

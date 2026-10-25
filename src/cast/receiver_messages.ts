@@ -27,6 +27,13 @@ export interface ShowLovelaceViewMessage extends BaseCastMessage {
   hassUrl: string;
   hassUUID?: string;
   vignetteSize?: number;
+  brightnessPct?: number;
+  operationId?: string;
+}
+
+export interface SetBrightnessMessage extends BaseCastMessage {
+  type: "set_brightness";
+  brightnessPct: number;
   operationId?: string;
 }
 
@@ -54,6 +61,7 @@ export type HassMessage =
   | GetStatusMessage
   | ConnectMessage
   | ShowLovelaceViewMessage
+  | SetBrightnessMessage
   | ShowLoadingScreenMessage
   | HideLoadingScreenMessage
   | UnloadDashboardMessage;
