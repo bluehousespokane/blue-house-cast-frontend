@@ -173,22 +173,22 @@ function createCastParticleRenderer(
             particle.alpha = Math.max(0.1, Math.min(0.5, particle.alpha));
           }
           const minX = Math.min(edgePadding + particle.radius, width / 2);
-          const maxX = Math.max(width - edgePadding - particle.radius, width / 2);
+          const maxX = Math.max(
+            width - edgePadding - particle.radius,
+            width / 2
+          );
           const minY = Math.min(edgePadding + particle.radius, height / 2);
-          const maxY = Math.max(height - edgePadding - particle.radius, height / 2);
+          const maxY = Math.max(
+            height - edgePadding - particle.radius,
+            height / 2
+          );
           if (particle.x < minX || particle.x > maxX) {
             particle.vx *= -1;
-            particle.x = Math.max(
-              minX,
-              Math.min(maxX, particle.x)
-            );
+            particle.x = Math.max(minX, Math.min(maxX, particle.x));
           }
           if (particle.y < minY || particle.y > maxY) {
             particle.vy *= -1;
-            particle.y = Math.max(
-              minY,
-              Math.min(maxY, particle.y)
-            );
+            particle.y = Math.max(minY, Math.min(maxY, particle.y));
           }
         });
 

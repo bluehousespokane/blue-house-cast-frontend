@@ -2,9 +2,7 @@ const PARTICLE_EDGE_PADDING = 24;
 
 (() => {
   const loader = document.getElementById("cast-loading-screen");
-  const brightnessOverlay = document.getElementById(
-    "cast-brightness-overlay"
-  );
+  const brightnessOverlay = document.getElementById("cast-brightness-overlay");
   let canvas = document.getElementById("cast-loading-particles");
   const reducedMotion = window.matchMedia(
     "(prefers-reduced-motion: reduce)"
@@ -73,7 +71,10 @@ const PARTICLE_EDGE_PADDING = 24;
         resolve(completed);
       };
       const onEnd = (event) => {
-        if (event.target === brightnessOverlay && event.propertyName === "opacity") {
+        if (
+          event.target === brightnessOverlay &&
+          event.propertyName === "opacity"
+        ) {
           finish(true);
         }
       };
