@@ -420,11 +420,7 @@ export class HcMain extends HassElement {
       coverTransition,
       brightnessTransition,
     ]);
-    if (
-      !covered ||
-      !brightnessChanged ||
-      generation !== this._loadGeneration
-    ) {
+    if (!covered || !brightnessChanged || generation !== this._loadGeneration) {
       return;
     }
 
