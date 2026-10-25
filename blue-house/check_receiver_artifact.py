@@ -30,7 +30,8 @@ if not startup_styles:
     raise SystemExit("startup styles must appear before the Cast SDK script")
 
 black_background = re.compile(
-    r"html\s*,\s*body\s*\{[^}]*background(?:-color)?\s*:\s*"
+    r"(?:html\s*,\s*body|body\s*,\s*html)\s*\{"
+    r"[^}]*background(?:-color)?\s*:\s*"
     r"(?:#000(?:000)?\b|black\b)",
     re.DOTALL | re.IGNORECASE,
 )
