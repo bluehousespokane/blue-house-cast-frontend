@@ -1,5 +1,12 @@
 <!DOCTYPE html>
 <html>
+  <style>
+    html,
+    body {
+      background: #000;
+      color-scheme: dark;
+    }
+  </style>
   <script src="//www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"></script>
   <% for (const entry of latestEntryJS) { %>
     <script type="module" src="<%= entry %>"></script>
