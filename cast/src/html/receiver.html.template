@@ -97,9 +97,12 @@
             const t = start + ((1 - start) * index) / 48;
             const alpha = t * t * t * (t * (t * 6 - 15) + 10);
             const px = Math.max(0, inner + t * feather);
-            return `rgba(0,0,0,${alpha.toFixed(6)}) ${px.toFixed(2)}px`;
+            return (
+              "rgba(0,0,0," + alpha.toFixed(6) + ") " + px.toFixed(2) + "px"
+            );
           });
-          const mask = `radial-gradient(circle at center, ${stops.join(",")})`;
+          const mask =
+            "radial-gradient(circle at center, " + stops.join(",") + ")";
           loader.style.maskImage = mask;
           loader.style.webkitMaskImage = mask;
         };
@@ -362,9 +365,8 @@
                 const dy = pointer.y - particle.y;
                 const distance = Math.sqrt(dx * dx + dy * dy);
                 if (distance < 200) {
-                  context.strokeStyle = `rgba(255, 255, 255, ${
-                    0.2 * (1 - distance / 200)
-                  })`;
+                  context.strokeStyle =
+                    "rgba(255, 255, 255, " + 0.2 * (1 - distance / 200) + ")";
                   context.lineWidth = 1;
                   context.beginPath();
                   context.moveTo(particle.x, particle.y);
