@@ -1,0 +1,100 @@
+name: Blue House Cast checks and upstream sync
+
+on:
+  push:
+    branches: [blue-house]
+  schedule:
+    - cron: "23 7 * * *"
+  workflow_dispatch:
+    inputs:
+      sync_upstream:
+        description: Merge the latest published upstream frontend release
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: blue-house-cast-source
+  cancel-in-progress: false
+
+env:
+  NODE_OPTIONS: --max_old_space_size=6144
+  SKIP_FETCH_NIGHTLY_TRANSLATIONS: "1"
+
+jobs:
+  receiver:
+    if: github.repository == 'bluehousespokane/blue-house-cast-frontend'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: blue-house
+          fetch-depth: 0
+      - name: Prepare candidate upstream merge
+        id: upstream
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SYNC_UPSTREAM: ${{ github.event_name == 'schedule' || inputs.sync_upstream == true }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "check=true" >> "$GITHUB_OUTPUT"
+          echo "updated=false" >> "$GITHUB_OUTPUT"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          if [[ "$SYNC_UPSTREAM" != true ]]; then
+            exit 0
+          fi
+          release=$(gh api repos/home-assistant/frontend/releases/latest --jq .tag_name)
+          [[ "$release" =~ ^[0-9]{8}\.[0-9]+$ ]]
+          git remote add upstream https://github.com/home-assistant/frontend.git
+          git fetch --no-tags upstream "refs/tags/$release:refs/tags/$release"
+          if git merge-base --is-ancestor "$release" HEAD; then
+            echo "check=false" >> "$GITHUB_OUTPUT"
+            echo "Upstream $release is already included." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if ! git merge --no-edit "$release"; then
+            git merge --abort
+            echo "::error::Upstream $release conflicts with this fork; manual review is required."
+            exit 1
+          fi
+          echo "updated=true" >> "$GITHUB_OUTPUT"
+          echo "Candidate merge: upstream $release" >> "$GITHUB_STEP_SUMMARY"
+      - name: Set up Node
+        if: steps.upstream.outputs.check == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Set up pnpm
+        if: steps.upstream.outputs.check == 'true'
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+      - name: Install upstream dependencies
+        if: steps.upstream.outputs.check == 'true'
+        run: pnpm install --frozen-lockfile
+      - name: Check customized source
+        if: steps.upstream.outputs.check == 'true'
+        run: |
+          pnpm exec prettier --check cast/src/receiver/layout/hc-launch-screen.ts cast/src/receiver/layout/hc-main.ts src/cast/const.ts src/cast/sender_messages.ts blue-house/README.md .github/workflows/blue_house_cast.yaml
+          pnpm exec eslint cast/src/receiver/layout/hc-launch-screen.ts cast/src/receiver/layout/hc-main.ts src/cast/const.ts src/cast/sender_messages.ts
+          pnpm test test/cast/
+          pnpm lint:types
+      - name: Build the upstream Cast target
+        if: steps.upstream.outputs.check == 'true'
+        run: |
+          pnpm exec gulp build-cast
+          test -s cast/dist/receiver.html
+          test -d cast/dist/frontend_latest
+          git diff --exit-code
+      - name: Accept validated upstream merge
+        if: steps.upstream.outputs.updated == 'true'
+        run: |
+          git push origin HEAD:blue-house
+          echo "Validated fork commit: $(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
