@@ -63,7 +63,8 @@ for color in ("#E8EEF4", "#005E88", "#F58220"):
         raise SystemExit(f"loading screen is missing palette color {color}")
 
 start_particles = re.search(
-    r"const startParticles = \(\) => \{(.*?)\n        \};",
+    r"const\s+startParticles\s*=\s*\(\)\s*=>\s*\{(.*?)\}\s*;?\s*"
+    r"const\s+drawParticles",
     before_cast_sdk,
     re.DOTALL,
 )
