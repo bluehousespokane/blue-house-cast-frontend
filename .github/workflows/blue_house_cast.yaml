@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: blue-house-cast-source
+  group: blue-house-cast-source-${{ github.ref }}
   cancel-in-progress: false
 
 env:

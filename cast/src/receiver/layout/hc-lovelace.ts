@@ -2,6 +2,7 @@ import type { PropertyValues, TemplateResult } from "lit";
 import { css, html, LitElement } from "lit";
 import { customElement, property } from "lit/decorators";
 import { fireEvent } from "../../../../src/common/dom/fire_event";
+import type { HASSDomEvent } from "../../../../src/common/dom/fire_event";
 import type { LovelaceConfig } from "../../../../src/data/lovelace/config/types";
 import { getPanelTitleFromUrlPath } from "../../../../src/data/panel";
 import type { Lovelace } from "../../../../src/panels/lovelace/types";
@@ -140,5 +141,8 @@ declare global {
   }
   interface HASSDomEvents {
     "cast-view-changed": CastViewChanged;
+  }
+  interface HTMLElementEventMap {
+    "cast-view-changed": HASSDomEvent<CastViewChanged>;
   }
 }
