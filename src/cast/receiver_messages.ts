@@ -58,7 +58,8 @@ export interface ApplySettingsMessage extends BaseCastMessage {
 }
 
 export interface ReceiverControlMessage extends BaseCastMessage {
-  type: "show_content" | "hide_content" | "unload_content" | "bring_to_foreground";
+  type:
+    "show_content" | "hide_content" | "unload_content" | "bring_to_foreground";
   protocolVersion?: number;
   sessionId?: string;
   requestId?: string;

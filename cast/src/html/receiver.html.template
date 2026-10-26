@@ -56,9 +56,17 @@
         z-index: 2147483646;
         pointer-events: none;
         background:
-          linear-gradient(to right, #000, transparent var(--vignette-size, 0px)),
+          linear-gradient(
+            to right,
+            #000,
+            transparent var(--vignette-size, 0px)
+          ),
           linear-gradient(to left, #000, transparent var(--vignette-size, 0px)),
-          linear-gradient(to bottom, #000, transparent var(--vignette-size, 0px)),
+          linear-gradient(
+            to bottom,
+            #000,
+            transparent var(--vignette-size, 0px)
+          ),
           linear-gradient(to top, #000, transparent var(--vignette-size, 0px));
       }
 

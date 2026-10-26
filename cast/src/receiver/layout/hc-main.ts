@@ -112,12 +112,18 @@ export class HcMain extends HassElement {
     }
 
     @keyframes error-shimmer {
-      from { border-color: #9c1717; }
-      to { border-color: #ff5252; }
+      from {
+        border-color: #9c1717;
+      }
+      to {
+        border-color: #ff5252;
+      }
     }
 
     @media (prefers-reduced-motion: reduce) {
-      .error-frame { animation: none; }
+      .error-frame {
+        animation: none;
+      }
     }
   `;
 
@@ -175,7 +181,8 @@ export class HcMain extends HassElement {
 
   private _suspended = false;
 
-  private _contentPhase: NonNullable<ReceiverStatusMessage["contentPhase"]> = "idle";
+  private _contentPhase: NonNullable<ReceiverStatusMessage["contentPhase"]> =
+    "idle";
 
   private readonly _sessionId = crypto.randomUUID();
 
@@ -186,7 +193,10 @@ export class HcMain extends HassElement {
       void this._suspendContent();
     } else if (document.visibilityState === "visible" && this._suspended) {
       void this._restoreSuspendedContent();
-    } else if (document.visibilityState === "visible" && this._errorNoticeVisible) {
+    } else if (
+      document.visibilityState === "visible" &&
+      this._errorNoticeVisible
+    ) {
       this._startErrorNoticeTimer();
     }
     this._sendStatus();
@@ -236,7 +246,11 @@ export class HcMain extends HassElement {
   }
 
   public processIncomingMessage(msg: HassMessage) {
-    if ("protocolVersion" in msg && msg.protocolVersion !== undefined && msg.protocolVersion !== 1) {
+    if (
+      "protocolVersion" in msg &&
+      msg.protocolVersion !== undefined &&
+      msg.protocolVersion !== 1
+    ) {
       this._rejectMessage(msg, "Receiver protocol version mismatch.");
       return;
     }
@@ -318,8 +332,7 @@ export class HcMain extends HassElement {
       window.blueHouseCastLoadingScreen?.getDesktop() ?? "particles";
     this._brightnessPct =
       window.blueHouseCastLoadingScreen?.getBrightness() ?? 100;
-    this._vignetteSize =
-      window.blueHouseCastLoadingScreen?.getVignette() ?? 0;
+    this._vignetteSize = window.blueHouseCastLoadingScreen?.getVignette() ?? 0;
     window.blueHouseCastLoadingScreen?.setVignette(this._vignetteSize);
     this._sendStatus();
     import("./hc-lovelace");
@@ -349,7 +362,10 @@ export class HcMain extends HassElement {
 
   protected updated(changedProps: PropertyValues<this>) {
     super.updated(changedProps);
-    if (changedProps.has("hass") && this.hass?.connection !== this._statusConnection) {
+    if (
+      changedProps.has("hass") &&
+      this.hass?.connection !== this._statusConnection
+    ) {
       this._statusConnection?.removeEventListener(
         "disconnected",
         this._handleDataConnectionChange
@@ -389,7 +405,9 @@ export class HcMain extends HassElement {
       dashboardLoaded: this._dashboardLoaded,
       contentLoaded: this._dashboardLoaded,
       contentVisible:
-        this._dashboardLoaded && !this._loadingScreenVisible && document.visibilityState === "visible",
+        this._dashboardLoaded &&
+        !this._loadingScreenVisible &&
+        document.visibilityState === "visible",
       contentPhase: this._suspended ? "suspended" : this._contentPhase,
       desiredVisible: this._desiredVisible,
       desktop: this._desktop,
@@ -535,7 +553,10 @@ export class HcMain extends HassElement {
     // Means a client got out of sync. Let's send status to them.
     if (!this.hass?.connected) {
       this._sendStatus(msg.senderId!);
-      this._rejectMessage(msg, "Cannot show Lovelace because Home Assistant data is disconnected.");
+      this._rejectMessage(
+        msg,
+        "Cannot show Lovelace because Home Assistant data is disconnected."
+      );
       return;
     }
 
@@ -584,7 +605,10 @@ export class HcMain extends HassElement {
         this._validateRequestedView(msg),
         new Promise<never>((_resolve, reject) => {
           validationTimer = window.setTimeout(
-            () => reject(new Error("Home Assistant dashboard data readiness timed out.")),
+            () =>
+              reject(
+                new Error("Home Assistant dashboard data readiness timed out.")
+              ),
             30000
           );
         }),
@@ -633,7 +657,11 @@ export class HcMain extends HassElement {
       return;
     }
     this._mountTimer = window.setTimeout(
-      () => void this._failMount(generation, "The dashboard did not finish loading within 30 seconds."),
+      () =>
+        void this._failMount(
+          generation,
+          "The dashboard did not finish loading within 30 seconds."
+        ),
       30000
     );
 
@@ -788,9 +816,7 @@ export class HcMain extends HassElement {
     }
     const config = isStrategyDashboard(rawConfig)
       ? await (
-          await import(
-            "../../../../src/panels/lovelace/strategies/get-strategy"
-          )
+          await import("../../../../src/panels/lovelace/strategies/get-strategy")
         ).generateLovelaceDashboardStrategy(rawConfig, this.hass!)
       : (rawConfig as LovelaceConfig);
     const checked = checkLovelaceConfig(config) as LovelaceConfig;
@@ -870,10 +896,9 @@ export class HcMain extends HassElement {
       this._sendStatus(msg.senderId);
       return;
     }
-    if (
-      await this._showLoadingScreen(true)
-    ) {
-      this._completedOperationId = "operationId" in msg ? msg.operationId : undefined;
+    if (await this._showLoadingScreen(true)) {
+      this._completedOperationId =
+        "operationId" in msg ? msg.operationId : undefined;
       this._ackControl(msg as ReceiverControlMessage, "hide_content");
       this._commandOutcome = "hidden";
       this._sendStatus();
@@ -891,7 +916,12 @@ export class HcMain extends HassElement {
     const layer = window.blueHouseCastLoadingScreen;
     if (!layer || msg.protocolVersion !== 1) return;
     if (msg.settingsVersion < layer.getSettingsVersion()) {
-      this._sendRequestAck(msg, "apply_settings", "rejected", "Stale settings version.");
+      this._sendRequestAck(
+        msg,
+        "apply_settings",
+        "rejected",
+        "Stale settings version."
+      );
       this._sendStatus(msg.senderId);
       return;
     }
@@ -905,11 +935,21 @@ export class HcMain extends HassElement {
       Number.isInteger(msg.settingsVersion) &&
       typeof msg.keepAlive === "boolean";
     if (!valid) {
-      this._sendRequestAck(msg, "apply_settings", "rejected", "Invalid receiver settings.");
+      this._sendRequestAck(
+        msg,
+        "apply_settings",
+        "rejected",
+        "Invalid receiver settings."
+      );
       return;
     }
     if (!(await this._setBrightness(msg.brightnessPct))) {
-      this._sendRequestAck(msg, "apply_settings", "rejected", "Brightness could not be applied.");
+      this._sendRequestAck(
+        msg,
+        "apply_settings",
+        "rejected",
+        "Brightness could not be applied."
+      );
       return;
     }
     if (!layer.setDesktop(msg.desktop, msg.settingsVersion)) return;
@@ -976,7 +1016,8 @@ export class HcMain extends HassElement {
       return;
     }
     if (await this._hideLoadingScreen()) {
-      this._completedOperationId = "operationId" in msg ? msg.operationId : undefined;
+      this._completedOperationId =
+        "operationId" in msg ? msg.operationId : undefined;
       this._ackControl(msg as ReceiverControlMessage, "show_content");
       this._sendStatus();
     }
@@ -1014,7 +1055,8 @@ export class HcMain extends HassElement {
     await this.updateComplete;
     if (generation !== this._loadGeneration) return;
     window.blueHouseCastLoadingScreen?.setPhase("unloaded");
-    this._completedOperationId = "operationId" in msg ? msg.operationId : undefined;
+    this._completedOperationId =
+      "operationId" in msg ? msg.operationId : undefined;
     this._ackControl(msg as ReceiverControlMessage, "unload_content");
     this._commandOutcome = "unloaded";
     this._sendStatus();
@@ -1215,21 +1257,26 @@ export class HcMain extends HassElement {
   }
 
   private _startErrorNoticeTimer() {
-    if (document.visibilityState !== "visible" || !this._errorNoticeVisible) return;
+    if (document.visibilityState !== "visible" || !this._errorNoticeVisible) {
+      return;
+    }
     window.clearTimeout(this._errorNoticeTimer);
     const started = performance.now();
-    this._errorNoticeTimer = window.setTimeout(() => {
-      this._errorNoticeRemaining = Math.max(
-        0,
-        this._errorNoticeRemaining - (performance.now() - started)
-      );
-      if (this._errorNoticeRemaining <= 0) {
-        this._errorNoticeVisible = false;
-        this._errorNoticeTimer = undefined;
-        return;
-      }
-      this._startErrorNoticeTimer();
-    }, Math.min(250, this._errorNoticeRemaining));
+    this._errorNoticeTimer = window.setTimeout(
+      () => {
+        this._errorNoticeRemaining = Math.max(
+          0,
+          this._errorNoticeRemaining - (performance.now() - started)
+        );
+        if (this._errorNoticeRemaining <= 0) {
+          this._errorNoticeVisible = false;
+          this._errorNoticeTimer = undefined;
+          return;
+        }
+        this._startErrorNoticeTimer();
+      },
+      Math.min(250, this._errorNoticeRemaining)
+    );
   }
 
   private _getErrorMessage(error: number): string {

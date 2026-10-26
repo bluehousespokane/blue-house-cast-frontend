@@ -34,7 +34,14 @@ export interface ReceiverStatusMessage extends BaseCastMessage {
   dashboardLoaded?: boolean;
   contentLoaded?: boolean;
   contentVisible?: boolean;
-  contentPhase?: "idle" | "loading" | "mounted" | "displayed" | "suspended" | "failed" | "unloaded";
+  contentPhase?:
+    | "idle"
+    | "loading"
+    | "mounted"
+    | "displayed"
+    | "suspended"
+    | "failed"
+    | "unloaded";
   desiredVisible?: boolean;
   desktop?: "particles" | "black";
   settingsVersion?: number;

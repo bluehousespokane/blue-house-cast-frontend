@@ -332,7 +332,9 @@ const PARTICLE_EDGE_PADDING = 24;
     );
     renderer?.setPhase(particlePhase);
     renderer?.setRunning(
-      desktop === "particles" && visible && document.visibilityState !== "hidden"
+      desktop === "particles" &&
+        visible &&
+        document.visibilityState !== "hidden"
     );
     bindPointer();
     resolveReady();
@@ -433,7 +435,9 @@ const PARTICLE_EDGE_PADDING = 24;
   document.addEventListener("visibilitychange", () =>
     sendParticles(
       "setRunning",
-      desktop === "particles" && visible && document.visibilityState !== "hidden"
+      desktop === "particles" &&
+        visible &&
+        document.visibilityState !== "hidden"
     )
   );
   window.addEventListener("pagehide", () => {
