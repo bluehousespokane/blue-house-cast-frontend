@@ -160,7 +160,7 @@ const PARTICLE_EDGE_PADDING = 24;
     if (openness === target && !finishTransition) {
       return Promise.resolve(true);
     }
-    ++transitionGeneration;
+    const generation = ++transitionGeneration;
     window.cancelAnimationFrame(transitionFrame);
     finishTransition?.(false);
     const from = openness;
