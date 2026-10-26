@@ -3,7 +3,39 @@ const PARTICLE_EDGE_PADDING = 24;
 (() => {
   const loader = document.getElementById("cast-loading-screen");
   const brightnessOverlay = document.getElementById("cast-brightness-overlay");
+  const vignetteOverlay = document.getElementById("cast-vignette-overlay");
   let canvas = document.getElementById("cast-loading-particles");
+  let desktop = "particles";
+  let settingsVersion = 0;
+  let cachedBrightnessPct = 100;
+  try {
+    const cachedSettings = JSON.parse(
+      localStorage.getItem("blue-house-cast-settings-v1") || "{}"
+    );
+    if (
+      cachedSettings.desktop === "particles" ||
+      cachedSettings.desktop === "black"
+    ) {
+      desktop = cachedSettings.desktop;
+      settingsVersion = Number(cachedSettings.settingsVersion) || 0;
+      if (
+        Number.isInteger(cachedSettings.brightnessPct) &&
+        cachedSettings.brightnessPct >= 0 &&
+        cachedSettings.brightnessPct <= 100
+      ) {
+        cachedBrightnessPct = cachedSettings.brightnessPct;
+      }
+      if (canvas) canvas.hidden = desktop === "black";
+      if (vignetteOverlay && Number.isFinite(cachedSettings.vignetteSize)) {
+        vignetteOverlay.style.setProperty(
+          "--vignette-size",
+          Math.max(0, cachedSettings.vignetteSize) + "px"
+        );
+      }
+    }
+  } catch {
+    // Invalid cache is ignored; Home Assistant remains the settings owner.
+  }
   const reducedMotion = window.matchMedia(
     "(prefers-reduced-motion: reduce)"
   ).matches;
@@ -20,7 +52,14 @@ const PARTICLE_EDGE_PADDING = 24;
   let visible = true;
   let held = false;
   let particlePhase = "startup";
-  let brightnessPct = 100;
+  let brightnessPct = cachedBrightnessPct;
+  if (brightnessOverlay && brightnessPct !== 100) {
+    brightnessOverlay.style.transitionDuration = "0ms";
+    brightnessOverlay.style.opacity = String((100 - brightnessPct) / 100);
+    window.requestAnimationFrame(() =>
+      brightnessOverlay.style.removeProperty("transition-duration")
+    );
+  }
   let brightnessGeneration = 0;
   let finishBrightnessTransition;
   let brightnessTransitionPromise = Promise.resolve(true);
@@ -121,14 +160,17 @@ const PARTICLE_EDGE_PADDING = 24;
     if (openness === target && !finishTransition) {
       return Promise.resolve(true);
     }
-    const generation = ++transitionGeneration;
+    ++transitionGeneration;
     window.cancelAnimationFrame(transitionFrame);
     finishTransition?.(false);
     const from = openness;
     loader.hidden = false;
     visible = true;
     notifyVisibility();
-    sendParticles("setRunning", document.visibilityState !== "hidden");
+    sendParticles(
+      "setRunning",
+      desktop === "particles" && document.visibilityState !== "hidden"
+    );
 
     return new Promise((resolve) => {
       const finish = (completed) => {
@@ -156,7 +198,9 @@ const PARTICLE_EDGE_PADDING = 24;
         loader.hidden = !visible;
         sendParticles(
           "setRunning",
-          visible && document.visibilityState !== "hidden"
+          desktop === "particles" &&
+            visible &&
+            document.visibilityState !== "hidden"
         );
         notifyVisibility();
         finish(true);
@@ -178,6 +222,24 @@ const PARTICLE_EDGE_PADDING = 24;
     return transitionTo(1, 5000);
   };
 
+  // A hidden Cast document may stop receiving animation frames. Cover it
+  // synchronously before releasing dashboard resources in that case.
+  const coverImmediately = () => {
+    held = true;
+    window.clearTimeout(revealTimer);
+    const generation = ++transitionGeneration;
+    window.cancelAnimationFrame(transitionFrame);
+    finishTransition?.(false);
+    finishTransition = undefined;
+    openness = 0;
+    loader.hidden = false;
+    loader.style.maskImage = "none";
+    loader.style.webkitMaskImage = "none";
+    visible = true;
+    sendParticles("setRunning", false);
+    notifyVisibility();
+  };
+
   const scheduleReveal = () => {
     if (held || !visible) {
       return;
@@ -189,6 +251,37 @@ const PARTICLE_EDGE_PADDING = 24;
   window.blueHouseCastLoadingScreen = {
     show,
     hide,
+    coverImmediately,
+    setDesktop(nextDesktop, nextSettingsVersion) {
+      if (
+        (nextDesktop !== "particles" && nextDesktop !== "black") ||
+        !Number.isInteger(nextSettingsVersion) ||
+        nextSettingsVersion < settingsVersion
+      ) {
+        return false;
+      }
+      desktop = nextDesktop;
+      settingsVersion = nextSettingsVersion;
+      if (canvas) canvas.hidden = desktop === "black";
+      sendParticles(
+        "setRunning",
+        desktop === "particles" &&
+          visible &&
+          document.visibilityState !== "hidden"
+      );
+      return true;
+    },
+    getDesktop: () => desktop,
+    getVignette: () => {
+      const value = vignetteOverlay?.style.getPropertyValue("--vignette-size");
+      return value ? Math.max(0, Number.parseFloat(value) || 0) : 0;
+    },
+    getSettingsVersion: () => settingsVersion,
+    setVignette(size) {
+      if (!Number.isInteger(size) || size < 0 || !vignetteOverlay) return false;
+      vignetteOverlay.style.setProperty("--vignette-size", size + "px");
+      return true;
+    },
     scheduleReveal,
     ready,
     getPerformance,
@@ -238,7 +331,9 @@ const PARTICLE_EDGE_PADDING = 24;
       window
     );
     renderer?.setPhase(particlePhase);
-    renderer?.setRunning(visible && document.visibilityState !== "hidden");
+    renderer?.setRunning(
+      desktop === "particles" && visible && document.visibilityState !== "hidden"
+    );
     bindPointer();
     resolveReady();
   };
@@ -301,6 +396,12 @@ const PARTICLE_EDGE_PADDING = 24;
         if (data.ready) {
           window.clearTimeout(startupTimeout);
           URL.revokeObjectURL(workerUrl);
+          sendParticles(
+            "setRunning",
+            desktop === "particles" &&
+              visible &&
+              document.visibilityState !== "hidden"
+          );
           resolveReady();
         }
       };
@@ -332,7 +433,7 @@ const PARTICLE_EDGE_PADDING = 24;
   document.addEventListener("visibilitychange", () =>
     sendParticles(
       "setRunning",
-      visible && document.visibilityState !== "hidden"
+      desktop === "particles" && visible && document.visibilityState !== "hidden"
     )
   );
   window.addEventListener("pagehide", () => {

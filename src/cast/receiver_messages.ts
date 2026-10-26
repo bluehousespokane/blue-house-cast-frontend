@@ -14,6 +14,7 @@ export interface GetStatusMessage extends BaseCastMessage {
 
 export interface ConnectMessage extends BaseCastMessage {
   type: "connect";
+  protocolVersion?: number;
   refreshToken: string;
   clientId: string | null;
   hassUrl: string;
@@ -22,19 +23,45 @@ export interface ConnectMessage extends BaseCastMessage {
 
 export interface ShowLovelaceViewMessage extends BaseCastMessage {
   type: "show_lovelace_view";
+  protocolVersion?: number;
+  sessionId?: string;
+  requestId?: string;
   viewPath: string | number | null;
   urlPath: string | null;
   hassUrl: string;
   hassUUID?: string;
   vignetteSize?: number;
   brightnessPct?: number;
+  settingsVersion?: number;
+  keepAlive?: boolean;
   operationId?: string;
+  /** Internal receiver-only marker used when restoring suspended content. */
+  internalRestore?: boolean;
 }
 
 export interface SetBrightnessMessage extends BaseCastMessage {
   type: "set_brightness";
   brightnessPct: number;
   operationId?: string;
+}
+
+export interface ApplySettingsMessage extends BaseCastMessage {
+  type: "apply_settings";
+  protocolVersion: number;
+  sessionId?: string;
+  requestId?: string;
+  settingsVersion: number;
+  desktop: "particles" | "black";
+  brightnessPct: number;
+  vignetteSize: number;
+  keepAlive: boolean;
+}
+
+export interface ReceiverControlMessage extends BaseCastMessage {
+  type: "show_content" | "hide_content" | "unload_content" | "bring_to_foreground";
+  protocolVersion?: number;
+  sessionId?: string;
+  requestId?: string;
 }
 
 export interface ShowDemoMessage extends BaseCastMessage {
@@ -62,6 +89,8 @@ export type HassMessage =
   | ConnectMessage
   | ShowLovelaceViewMessage
   | SetBrightnessMessage
+  | ApplySettingsMessage
+  | ReceiverControlMessage
   | ShowLoadingScreenMessage
   | HideLoadingScreenMessage
   | UnloadDashboardMessage;

@@ -50,6 +50,18 @@
         transition: opacity 600ms cubic-bezier(0.22, 1, 0.36, 1);
       }
 
+      #cast-vignette-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 2147483646;
+        pointer-events: none;
+        background:
+          linear-gradient(to right, #000, transparent var(--vignette-size, 0px)),
+          linear-gradient(to left, #000, transparent var(--vignette-size, 0px)),
+          linear-gradient(to bottom, #000, transparent var(--vignette-size, 0px)),
+          linear-gradient(to top, #000, transparent var(--vignette-size, 0px));
+      }
+
       @media (prefers-reduced-motion: reduce) {
         #cast-brightness-overlay {
           transition-duration: 0ms;
@@ -66,6 +78,7 @@
     >
       <canvas id="cast-loading-particles" aria-hidden="true"></canvas>
     </div>
+    <div id="cast-vignette-overlay" aria-hidden="true"></div>
     <div id="cast-brightness-overlay" aria-hidden="true"></div>
     <script>
       <%= renderTemplate("./_loading_particles.js") %>

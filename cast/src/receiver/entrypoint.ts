@@ -89,7 +89,16 @@ const showMediaPlayer = () => {
 };
 
 const options = new framework.CastReceiverOptions();
-options.disableIdleTimeout = true;
+const cachedSettings = (() => {
+  try {
+    return JSON.parse(
+      localStorage.getItem("blue-house-cast-settings-v1") || "{}"
+    ) as { keepAlive?: boolean };
+  } catch {
+    return {};
+  }
+})();
+options.disableIdleTimeout = cachedSettings.keepAlive !== false;
 options.customNamespaces = {
   // type definition is wrong, should be "JSON" instead of "json"
   // https://developers.google.com/cast/docs/reference/web_receiver/cast.framework.system#.MessageType
@@ -99,21 +108,23 @@ options.customNamespaces = {
 castContext.addCustomMessageListener(CAST_NS, (ev) => {
   // We received a show Lovelace command, stop media from playing, hide media player and show Lovelace controller
   const msg = ev.data as HassMessage;
-  const activateReceiver =
+  const contentCommand =
     msg.type === "show_lovelace_view" ||
     msg.type === "show_demo" ||
     msg.type === "show_loading_screen" ||
     msg.type === "hide_loading_screen" ||
-    msg.type === "unload_dashboard";
+    msg.type === "unload_dashboard" ||
+    msg.type === "show_content" ||
+    msg.type === "hide_content" ||
+    msg.type === "unload_content";
   if (
+    contentCommand &&
     playerManager.getPlayerState() !==
-    ("IDLE" as framework.messages.PlayerState.IDLE)
+      ("IDLE" as framework.messages.PlayerState.IDLE)
   ) {
     playerManager.stop();
-    if (activateReceiver) {
-      showLovelaceController();
-    }
-  } else {
+    showLovelaceController();
+  } else if (contentCommand) {
     showLovelaceController();
   }
   msg.senderId = ev.senderId;

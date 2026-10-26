@@ -25,12 +25,26 @@ export interface LoadingPerformance {
 
 export interface ReceiverStatusMessage extends BaseCastMessage {
   type: "receiver_status";
+  protocolVersion?: number;
   connected: boolean;
   showDemo: boolean;
   visible?: boolean;
   viewReady?: boolean;
   loadingScreenVisible?: boolean;
   dashboardLoaded?: boolean;
+  contentLoaded?: boolean;
+  contentVisible?: boolean;
+  contentPhase?: "idle" | "loading" | "mounted" | "displayed" | "suspended" | "failed" | "unloaded";
+  desiredVisible?: boolean;
+  desktop?: "particles" | "black";
+  settingsVersion?: number;
+  lastRequestId?: string;
+  lastCommand?: string;
+  commandOutcome?: string;
+  commandError?: string;
+  commandStartedAt?: number;
+  commandUpdatedAt?: number;
+  sessionId?: string;
   vignetteSize?: number;
   brightnessPct?: number;
   loadingPerformance?: LoadingPerformance;
@@ -39,6 +53,18 @@ export interface ReceiverStatusMessage extends BaseCastMessage {
   hassUUID?: string;
   lovelacePath?: string | number | null;
   urlPath?: string | null;
+}
+
+export interface ReceiverCommandAckMessage extends BaseCastMessage {
+  type: "command_ack";
+  protocolVersion: number;
+  sessionId: string;
+  requestId: string;
+  command: string;
+  outcome: "accepted" | "rejected";
+  error?: string;
+  startedAt?: number;
+  updatedAt?: number;
 }
 
 export interface ReceiverErrorMessage extends BaseCastMessage {
@@ -56,6 +82,7 @@ export const enum ReceiverErrorCode {
   WRONG_INSTANCE = 20,
   NOT_CONNECTED = 21,
   FETCH_CONFIG_FAILED = 22,
+  PROTOCOL_MISMATCH = 23,
 }
 
 export type SenderMessage = ReceiverStatusMessage;
