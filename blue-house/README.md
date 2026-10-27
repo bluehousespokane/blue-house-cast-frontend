@@ -32,8 +32,9 @@ from the edges, including their current radius. Density scales with viewport
 area and is capped at the original 700 particles. Final counts retain exactly
 60% `#E8EEF4`, 30% `#005E88`, and 10% `#F58220`. The canvas uses 40% layer
 opacity. While mounting, the same particles fade to a 20/60/20 palette over
-800 ms, move and grow 20% more, and use up to four extra pixels of edge padding.
-They return to the desktop state as the view reveals or if loading fails. Motion uses the original particles.js
+200 ms with a quick start, move and grow 20% more, and use up to four extra
+pixels of edge padding. They return to the desktop state over 800 ms as the view
+reveals or if loading fails. Motion uses the original particles.js
 speed calculation, edge bounce, independent blue opacity animation, light and
 orange size animation, light attraction, and blue pointer grab. Drawing pauses
 after the cover is hidden; reduced motion uses a static field.

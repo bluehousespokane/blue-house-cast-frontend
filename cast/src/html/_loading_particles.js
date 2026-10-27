@@ -22,6 +22,9 @@ function createCastParticleRenderer(
   let pointer;
   let phase = "startup";
   let loadingMix = 0;
+  let mixFrom = 0;
+  let mixTarget = 0;
+  let mixStarted = 0;
   let lastReport = 0;
   const measurements = {};
   const measurement = () =>
@@ -40,6 +43,7 @@ function createCastParticleRenderer(
     renderer: options.renderer,
     particleCount: particles.length,
     targetParticleCount,
+    loadingMix: rounded(loadingMix),
     phases: Object.fromEntries(
       Object.entries(measurements).map(([name, value]) => [
         name,
@@ -60,6 +64,14 @@ function createCastParticleRenderer(
     const minimum = Math.min(inset, extent / 2);
     const maximum = Math.max(extent - inset, extent / 2);
     return minimum + Math.random() * (maximum - minimum);
+  };
+  const updateLoadingMix = (timestamp) => {
+    const duration = mixTarget ? 200 : 800;
+    const t = reducedMotion
+      ? 1
+      : Math.max(0, Math.min(1, (timestamp - mixStarted) / duration));
+    const progress = mixTarget ? 1 - (1 - t) ** 3 : t;
+    loadingMix = mixFrom + (mixTarget - mixFrom) * progress;
   };
   const createParticle = (group) => {
     const radius = 0.1 + Math.random() * (group.settings.maxRadius - 0.1);
@@ -164,17 +176,7 @@ function createCastParticleRenderer(
         : 0;
       const drawGap = lastFrame ? timestamp - lastFrame : 0;
       lastFrame = timestamp;
-      const targetMix = phase === "mounting" ? 1 : 0;
-      const step = reducedMotion ? 1 : Math.min(1, drawGap / 800);
-      loadingMix = Math.max(
-        0,
-        Math.min(
-          1,
-          loadingMix +
-            Math.sign(targetMix - loadingMix) *
-              Math.min(step, Math.abs(targetMix - loadingMix))
-        )
-      );
+      updateLoadingMix(timestamp);
 
       if (!reducedMotion && frameScale) {
         particles.forEach((particle) => {
@@ -344,9 +346,17 @@ function createCastParticleRenderer(
     setPhase(value) {
       if (!["startup", "mounting", "mounted", "unloaded"].includes(value))
         return;
+      const nextTarget = value === "mounting" ? 1 : 0;
+      if (nextTarget !== mixTarget) {
+        const now = performance.now();
+        updateLoadingMix(now);
+        mixFrom = loadingMix;
+        mixTarget = nextTarget;
+        mixStarted = now;
+      }
       phase = value;
       if (reducedMotion) {
-        loadingMix = phase === "mounting" ? 1 : 0;
+        updateLoadingMix(performance.now());
         lastFrame = 0;
         drawParticles(performance.now());
       }
