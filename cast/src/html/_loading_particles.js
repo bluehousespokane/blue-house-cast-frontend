@@ -66,7 +66,7 @@ function createCastParticleRenderer(
     return minimum + Math.random() * (maximum - minimum);
   };
   const updateLoadingMix = (timestamp) => {
-    const duration = mixTarget ? 200 : 800;
+    const duration = mixTarget ? 250 : 800;
     const t = reducedMotion
       ? 1
       : Math.max(0, Math.min(1, (timestamp - mixStarted) / duration));
