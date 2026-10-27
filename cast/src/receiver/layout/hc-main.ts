@@ -218,7 +218,7 @@ export class HcMain extends HassElement {
           this._completedOperationId = this._pendingViewOperationId;
           this._pendingViewOperationId = undefined;
         }
-        this._sendStatus();
+        queueMicrotask(() => this._sendStatus());
       }
     );
   }
