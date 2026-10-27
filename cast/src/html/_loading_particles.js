@@ -180,10 +180,13 @@ function createCastParticleRenderer(
 
       if (!reducedMotion && frameScale) {
         particles.forEach((particle) => {
-          particle.x +=
-            particle.vx * 0.25 * frameScale * (1 + loadingMix * 0.2);
-          particle.y +=
-            particle.vy * 0.25 * frameScale * (1 + loadingMix * 0.2);
+          const normalSpeed = particle.color === "#E8EEF4" ? 1.4 : 1.12;
+          const loadingSpeed = particle.loadingColor === "#E8EEF4" ? 1.4 : 1.12;
+          const speed =
+            (normalSpeed + (loadingSpeed - normalSpeed) * loadingMix) *
+            (1 + loadingMix * 0.2);
+          particle.x += particle.vx * 0.25 * frameScale * speed;
+          particle.y += particle.vy * 0.25 * frameScale * speed;
           if (particle.settings.animateSize) {
             particle.radius +=
               particle.sizeDirection * particle.sizeStep * frameScale;

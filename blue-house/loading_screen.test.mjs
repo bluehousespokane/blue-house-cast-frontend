@@ -208,6 +208,27 @@ test("keeps the original slow motion and independent size and opacity animation"
   assert.notEqual(whiteAfter.radius, whiteBefore.radius);
 });
 
+test("white particles move faster on average while the field remains continuous", async () => {
+  const { api, advance, frame } = receiver();
+  await advance(28000);
+  const before = frame().map((dot) => ({ ...dot }));
+  const count = api.getPerformance().particleCount;
+  await advance(96);
+  const after = frame();
+  const averageDistance = (color) => {
+    const distances = before.flatMap((dot, index) =>
+      dot.color === color
+        ? [Math.hypot(after[index].x - dot.x, after[index].y - dot.y)]
+        : []
+    );
+    return (
+      distances.reduce((sum, distance) => sum + distance, 0) / distances.length
+    );
+  };
+  assert.equal(api.getPerformance().particleCount, count);
+  assert.ok(averageDistance("#E8EEF4") > averageDistance("#005E88") * 1.1);
+});
+
 test("holds for two seconds then reveals through a feathered circle over five seconds", async () => {
   const { api, cover, advance } = receiver();
   api.scheduleReveal();
