@@ -64,19 +64,26 @@ function createCastParticleRenderer(
   const createParticle = (group) => {
     const radius = 0.1 + Math.random() * (group.settings.maxRadius - 0.1);
     const spawnInset = edgePadding + group.settings.maxRadius;
+    const loadingPalette = [
+      "#005E88",
+      "#E8EEF4",
+      "#F58220",
+      "#005E88",
+      "#E8EEF4",
+      "#005E88",
+    ];
     return {
       x: randomWithin(width, spawnInset),
       y: randomWithin(height, spawnInset),
       vx: Math.random() - 0.5,
       vy: Math.random() - 0.5,
       color: group.color,
+      // Interleave target colors so the loading palette appears even when
+      // only the first few particles have been created after startup.
       loadingColor:
-        group.color !== "#E8EEF4" ||
-        group.added <= Math.round(targetParticleCount * 0.2)
-          ? group.color
-          : group.added <= Math.round(targetParticleCount * 0.5)
-            ? "#005E88"
-            : "#F58220",
+        group.color === "#E8EEF4"
+          ? loadingPalette[(group.added - 1) % loadingPalette.length]
+          : group.color,
       radius,
       alpha: group.settings.animateOpacity ? 0.5 : Math.random() * 0.5,
       sizeStep: Math.random() * 0.1,

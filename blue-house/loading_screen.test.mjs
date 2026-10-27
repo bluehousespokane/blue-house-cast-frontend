@@ -338,6 +338,20 @@ test("loading palette fades in and out without replacing particles", async () =>
   assert.equal(api.getPerformance().particleCount, count);
 });
 
+test("loading palette is visible before the particle field has filled", async () => {
+  const { api, advance, frame } = receiver();
+  await advance(800);
+  assert.ok(api.getPerformance().particleCount < 50);
+  api.setPhase("mounting");
+  await advance(1000);
+  const active = frame().filter((dot) => dot.alpha > 0);
+  const white = active.filter((dot) => dot.color === "#E8EEF4").length;
+  const blue = active.filter((dot) => dot.color === "#005E88").length;
+  const orange = active.filter((dot) => dot.color === "#F58220").length;
+  assert.ok(blue > white);
+  assert.ok(orange >= 2);
+});
+
 test("covering starts promptly and still completes over five seconds", async () => {
   const { api, cover, advance } = receiver();
   const opening = api.hide();
