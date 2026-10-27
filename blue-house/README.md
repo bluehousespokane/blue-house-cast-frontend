@@ -30,8 +30,10 @@ frontend loading wait for the first particle draw and an initial paint. The
 canvas fills the viewport; particles spawn and bounce at least 24 CSS pixels
 from the edges, including their current radius. Density scales with viewport
 area and is capped at the original 700 particles. Final counts retain exactly
-60% `#E8EEF4`, 30% `#005E88`, and 10% `#F58220`. The canvas keeps its 30% layer
-opacity. Motion uses the original particles.js
+60% `#E8EEF4`, 30% `#005E88`, and 10% `#F58220`. The canvas uses 40% layer
+opacity. While mounting, the same particles fade to a 20/60/20 palette over
+800 ms, move and grow 20% more, and use up to four extra pixels of edge padding.
+They return to the desktop state when mounting completes or fails. Motion uses the original particles.js
 speed calculation, edge bounce, independent blue opacity animation, light and
 orange size animation, light attraction, and blue pointer grab. Drawing pauses
 after the cover is hidden; reduced motion uses a static field.
@@ -110,8 +112,8 @@ that generated startup styles, the cover, and the bootstrap precede the Cast
 SDK. CI also runs formatting, ESLint, Cast tests, the Cast build, and full
 TypeScript checking for the exact source commit.
 
-The loading transition uses the same five-second circular reveal in reverse,
-with a matching reversed timing curve. Dashboard DOM and video initialize while
+The loading transition covers over five seconds with a prompt start and eased
+finish. Dashboard DOM and video initialize while
 the cover is opaque; hiding the dashboard DOM would postpone that preparation.
 The optional `vignetteSize` message field adds a black edge fade in CSS pixels
 above the dashboard (zero disables it). It resets for each view request and on

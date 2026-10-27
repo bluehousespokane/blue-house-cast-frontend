@@ -21,6 +21,7 @@ function createCastParticleRenderer(
   let running = true;
   let pointer;
   let phase = "startup";
+  let loadingMix = 0;
   let lastReport = 0;
   const measurements = {};
   const measurement = () =>
@@ -69,6 +70,13 @@ function createCastParticleRenderer(
       vx: Math.random() - 0.5,
       vy: Math.random() - 0.5,
       color: group.color,
+      loadingColor:
+        group.color !== "#E8EEF4" ||
+        group.added <= Math.round(targetParticleCount * 0.2)
+          ? group.color
+          : group.added <= Math.round(targetParticleCount * 0.5)
+            ? "#005E88"
+            : "#F58220",
       radius,
       alpha: group.settings.animateOpacity ? 0.5 : Math.random() * 0.5,
       sizeStep: Math.random() * 0.1,
@@ -149,11 +157,24 @@ function createCastParticleRenderer(
         : 0;
       const drawGap = lastFrame ? timestamp - lastFrame : 0;
       lastFrame = timestamp;
+      const targetMix = phase === "mounting" ? 1 : 0;
+      const step = reducedMotion ? 1 : Math.min(1, drawGap / 800);
+      loadingMix = Math.max(
+        0,
+        Math.min(
+          1,
+          loadingMix +
+            Math.sign(targetMix - loadingMix) *
+              Math.min(step, Math.abs(targetMix - loadingMix))
+        )
+      );
 
       if (!reducedMotion && frameScale) {
         particles.forEach((particle) => {
-          particle.x += particle.vx * 0.25 * frameScale;
-          particle.y += particle.vy * 0.25 * frameScale;
+          particle.x +=
+            particle.vx * 0.25 * frameScale * (1 + loadingMix * 0.2);
+          particle.y +=
+            particle.vy * 0.25 * frameScale * (1 + loadingMix * 0.2);
           if (particle.settings.animateSize) {
             particle.radius +=
               particle.sizeDirection * particle.sizeStep * frameScale;
@@ -172,16 +193,12 @@ function createCastParticleRenderer(
             if (particle.alpha <= 0.1) particle.opacityDirection = 1;
             particle.alpha = Math.max(0.1, Math.min(0.5, particle.alpha));
           }
-          const minX = Math.min(edgePadding + particle.radius, width / 2);
-          const maxX = Math.max(
-            width - edgePadding - particle.radius,
-            width / 2
-          );
-          const minY = Math.min(edgePadding + particle.radius, height / 2);
-          const maxY = Math.max(
-            height - edgePadding - particle.radius,
-            height / 2
-          );
+          const padding = edgePadding + 4 * loadingMix;
+          const visibleRadius = particle.radius * (1 + loadingMix * 0.2);
+          const minX = Math.min(padding + visibleRadius, width / 2);
+          const maxX = Math.max(width - padding - visibleRadius, width / 2);
+          const minY = Math.min(padding + visibleRadius, height / 2);
+          const maxY = Math.max(height - padding - visibleRadius, height / 2);
           if (particle.x < minX || particle.x > maxX) {
             particle.vx *= -1;
             particle.x = Math.max(minX, Math.min(maxX, particle.x));
@@ -221,11 +238,24 @@ function createCastParticleRenderer(
 
       context.clearRect(0, 0, width, height);
       particles.forEach((particle) => {
-        context.globalAlpha = particle.alpha;
+        context.globalAlpha =
+          particle.alpha *
+          (particle.loadingColor === particle.color ? 1 : 1 - loadingMix);
         context.fillStyle = particle.color;
         context.beginPath();
-        context.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2);
+        context.arc(
+          particle.x,
+          particle.y,
+          particle.radius * (1 + loadingMix * 0.2),
+          0,
+          Math.PI * 2
+        );
         context.fill();
+        if (particle.loadingColor !== particle.color && loadingMix > 0) {
+          context.globalAlpha = particle.alpha * loadingMix;
+          context.fillStyle = particle.loadingColor;
+          context.fill();
+        }
       });
 
       context.globalAlpha = 1;
@@ -308,6 +338,11 @@ function createCastParticleRenderer(
       if (!["startup", "mounting", "mounted", "unloaded"].includes(value))
         return;
       phase = value;
+      if (reducedMotion) {
+        loadingMix = phase === "mounting" ? 1 : 0;
+        lastFrame = 0;
+        drawParticles(performance.now());
+      }
       lastAnimationFrame = 0;
       healthyFrames = 0;
       report(getPerformance());

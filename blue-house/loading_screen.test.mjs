@@ -300,6 +300,44 @@ test("scales particle density while capping Google TV work and preserving the pa
   assert.equal(draws.filter((dot) => dot.color === "#F58220").length, 70);
 });
 
+test("loading morphs existing particles to the loading palette and back", () => {
+  const { api, frame } = receiver({ reducedMotion: true });
+  const initial = frame()
+    .map(({ x, y }) => `${x},${y}`)
+    .sort();
+  api.setPhase("mounting");
+  const loading = frame().filter((dot) => dot.alpha > 0);
+  assert.equal(loading.length, 550);
+  assert.equal(loading.filter((dot) => dot.color === "#E8EEF4").length, 110);
+  assert.equal(loading.filter((dot) => dot.color === "#005E88").length, 330);
+  assert.equal(loading.filter((dot) => dot.color === "#F58220").length, 110);
+  assert.deepEqual(loading.map(({ x, y }) => `${x},${y}`).sort(), initial);
+  api.setPhase("unloaded");
+  assert.equal(frame().filter((dot) => dot.color === "#E8EEF4").length, 330);
+});
+
+test("loading palette fades in and out without replacing particles", async () => {
+  const { api, advance, frame } = receiver();
+  await advance(28000);
+  const count = api.getPerformance().particleCount;
+  api.setPhase("mounting");
+  await advance(200);
+  assert.ok(frame().length > count);
+  await advance(900);
+  assert.equal(api.getPerformance().particleCount, count);
+  assert.equal(
+    frame().filter((dot) => dot.color === "#005E88" && dot.alpha > 0).length,
+    330
+  );
+  api.setPhase("unloaded");
+  await advance(900);
+  assert.equal(
+    frame().filter((dot) => dot.color === "#E8EEF4" && dot.alpha > 0).length,
+    330
+  );
+  assert.equal(api.getPerformance().particleCount, count);
+});
+
 test("covering starts promptly and still completes over five seconds", async () => {
   const { api, cover, advance } = receiver();
   const opening = api.hide();

@@ -659,6 +659,7 @@ export class HcMain extends HassElement {
     }
     const generation = ++this._loadGeneration;
     this._contentPhase = "loading";
+    window.blueHouseCastLoadingScreen?.setPhase("mounting");
     window.clearTimeout(this._mountTimer);
     const viewGeneration = this._viewGeneration + 1;
     this._expectedViewGeneration = viewGeneration;
@@ -688,7 +689,6 @@ export class HcMain extends HassElement {
     this._showDemo = false;
     this._error = undefined;
     this._dashboardLoaded = false;
-    window.blueHouseCastLoadingScreen?.setPhase("mounting");
     this._vignetteSize =
       typeof msg.vignetteSize === "number" && Number.isFinite(msg.vignetteSize)
         ? Math.max(0, Math.round(msg.vignetteSize))
@@ -1257,6 +1257,7 @@ export class HcMain extends HassElement {
     ++this._configGeneration;
     this._mountTimer = undefined;
     this._contentPhase = "failed";
+    window.blueHouseCastLoadingScreen?.setPhase("unloaded");
     this._commandOutcome = "failed";
     this._commandError = message;
     this._commandUpdatedAt = Date.now();
