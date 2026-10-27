@@ -300,17 +300,19 @@ test("scales particle density while capping Google TV work and preserving the pa
   assert.equal(draws.filter((dot) => dot.color === "#F58220").length, 70);
 });
 
-test("covering follows the exact time reverse of the circular reveal", async () => {
+test("covering starts promptly and still completes over five seconds", async () => {
   const { api, cover, advance } = receiver();
   const opening = api.hide();
-  await advance(1000);
-  const openingMask = cover.style.maskImage;
-  await advance(4000);
+  await advance(5000);
   assert.equal(await opening, true);
+  const outerRadius = () =>
+    Number(cover.style.maskImage.match(/([\d.]+)px\)$/)[1]);
+  const initialRadius = outerRadius();
   const closing = api.show();
-  await advance(4000);
-  assert.equal(cover.style.maskImage, openingMask);
-  await advance(1000);
+  await advance(500);
+  assert.ok(outerRadius() < initialRadius * 0.8);
+  assert.equal(cover.hidden, false);
+  await advance(4500);
   assert.equal(await closing, true);
   assert.equal(cover.style.maskImage, "none");
 });

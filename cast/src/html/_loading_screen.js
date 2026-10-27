@@ -186,8 +186,8 @@ const PARTICLE_EDGE_PADDING = 24;
         const t = reducedMotion
           ? 1
           : Math.min((now - started) / Math.max(1, duration), 1);
-        // Closing is the exact time reverse of the opening curve.
-        const progress = target === 0 ? t ** 3 : 1 - (1 - t) ** 3;
+        // Start both directions promptly, then ease into their final state.
+        const progress = 1 - (1 - t) ** 3;
         openness = from + (target - from) * progress;
         applyMask();
         if (t < 1) {
