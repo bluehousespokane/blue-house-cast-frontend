@@ -177,6 +177,10 @@ export class HcMain extends HassElement {
 
   private _selectedContent?: ShowLovelaceViewMessage;
 
+  private _requestSequence = 0;
+
+  private _acceptedRequestSequence = 0;
+
   private _desiredVisible = true;
 
   private _suspended = false;
@@ -599,6 +603,9 @@ export class HcMain extends HassElement {
     if (msg.urlPath === "lovelace" || msg.urlPath === undefined) {
       msg.urlPath = null;
     }
+    const requestSequence = msg.internalRestore
+      ? undefined
+      : ++this._requestSequence;
     let validationTimer = 0;
     try {
       await Promise.race([
@@ -623,9 +630,22 @@ export class HcMain extends HassElement {
       window.clearTimeout(validationTimer);
     }
     if (!msg.internalRestore) {
+      if (
+        requestSequence === undefined ||
+        requestSequence < this._acceptedRequestSequence
+      ) {
+        this._rejectMessage(
+          msg,
+          "A newer content selection superseded this request."
+        );
+        return;
+      }
+      this._acceptedRequestSequence = requestSequence;
+      this._supersedeContentRequest();
       this._selectedContent = { ...msg };
       this._desiredVisible = true;
     } else {
+      if (this._selectedContent?.requestId !== msg.requestId) return;
       this._commandOutcome = "restoring";
       this._commandStartedAt = Date.now();
       this._commandUpdatedAt = this._commandStartedAt;
@@ -1027,7 +1047,11 @@ export class HcMain extends HassElement {
     msg: UnloadDashboardMessage | ReceiverControlMessage
   ) {
     const wasSuspended = this._suspended;
+    this._acceptedRequestSequence = ++this._requestSequence;
+    this._supersedeContentRequest();
     this._selectedContent = undefined;
+    this._lastRequestId = undefined;
+    this._lastCommand = undefined;
     this._desiredVisible = false;
     this._suspended = false;
     this._contentPhase = "unloaded";
@@ -1128,6 +1152,13 @@ export class HcMain extends HassElement {
     });
   }
 
+  private _supersedeContentRequest() {
+    if (!this._selectedContent || !this._lastRequestId) return;
+    this._commandOutcome = "superseded";
+    this._commandUpdatedAt = Date.now();
+    this._sendStatus();
+  }
+
   private _rejectMessage(msg: HassMessage, error: string) {
     if (!("requestId" in msg) || !msg.requestId || !msg.senderId) return;
     this._sendMessage(msg.senderId, {
@@ -1152,12 +1183,7 @@ export class HcMain extends HassElement {
     error?: string
   ) {
     if (!msg.requestId || !msg.sessionId || !msg.senderId) return;
-    this._lastRequestId = msg.requestId;
-    this._lastCommand = command;
-    this._commandOutcome = outcome;
-    this._commandError = error;
-    this._commandStartedAt = Date.now();
-    this._commandUpdatedAt = this._commandStartedAt;
+    const timestamp = Date.now();
     this._sendMessage(msg.senderId, {
       type: "command_ack",
       protocolVersion: 1,
@@ -1166,8 +1192,8 @@ export class HcMain extends HassElement {
       command,
       outcome,
       error,
-      startedAt: this._commandStartedAt,
-      updatedAt: this._commandUpdatedAt,
+      startedAt: timestamp,
+      updatedAt: timestamp,
     });
   }
 
