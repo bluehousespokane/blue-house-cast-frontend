@@ -1235,10 +1235,11 @@ export class HcMain extends HassElement {
     this._contentPhase = "mounted";
     this._commandOutcome = "mounted";
     this._commandUpdatedAt = Date.now();
-    window.blueHouseCastLoadingScreen?.setPhase("mounted");
     this._sendStatus();
     if (this._desiredVisible) {
       window.blueHouseCastLoadingScreen?.scheduleReveal();
+    } else {
+      window.blueHouseCastLoadingScreen?.setPhase("mounted");
     }
   };
 

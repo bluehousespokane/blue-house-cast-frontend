@@ -352,6 +352,26 @@ test("loading palette is visible before the particle field has filled", async ()
   assert.ok(orange >= 2);
 });
 
+test("loading palette remains through settling and fades when reveal begins", async () => {
+  const { api, advance, frame } = receiver();
+  await advance(800);
+  api.setPhase("mounting");
+  await advance(1000);
+  api.scheduleReveal();
+  await advance(1500);
+  let active = frame().filter((dot) => dot.alpha > 0);
+  assert.ok(
+    active.filter((dot) => dot.color === "#005E88").length >
+      active.filter((dot) => dot.color === "#E8EEF4").length
+  );
+  await advance(1500);
+  active = frame().filter((dot) => dot.alpha > 0);
+  assert.ok(
+    active.filter((dot) => dot.color === "#E8EEF4").length >
+      active.filter((dot) => dot.color === "#005E88").length
+  );
+});
+
 test("covering starts promptly and still completes over five seconds", async () => {
   const { api, cover, advance } = receiver();
   const opening = api.hide();

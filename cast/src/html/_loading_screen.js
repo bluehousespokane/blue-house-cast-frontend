@@ -219,6 +219,10 @@ const PARTICLE_EDGE_PADDING = 24;
   const hide = () => {
     held = false;
     window.clearTimeout(revealTimer);
+    if (particlePhase === "mounting") {
+      particlePhase = "mounted";
+      sendParticles("setPhase", particlePhase);
+    }
     return transitionTo(1, 5000);
   };
 
