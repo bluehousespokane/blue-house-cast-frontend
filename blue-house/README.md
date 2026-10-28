@@ -32,7 +32,7 @@ from the edges, including their current radius. Density scales with viewport
 area and is capped at the original 700 particles. Final counts retain exactly
 60% `#E8EEF4`, 30% `#005E88`, and 10% `#F58220`. The canvas uses 40% layer
 opacity. While mounting, the same particles fade to a 20/60/20 palette over
-250 ms with a quick start, move and grow 20% more, and use up to four extra
+one second with a quick start, move and grow 20% more, and use up to four extra
 pixels of edge padding. They return to the desktop state over 800 ms as the view
 reveals or if loading fails. White particles move 40% faster than the original
 baseline, and blue and orange move 12% faster; the loading state adds another
@@ -41,7 +41,7 @@ orange size animation, light attraction, and blue pointer grab. Drawing pauses
 after the cover is hidden; reduced motion uses a static field.
 
 For every show-view request, the old dashboard stays in place until the cover
-is opaque and has painted. The 250 ms palette change starts with the cover;
+is opaque and has painted. The one-second palette change starts with the cover;
 mounting begins only after that full cover finishes, so no second fixed delay is
 needed. The next view mounts with a fresh render generation, including a repeat
 request for the same view. After its render event, a two-second settle
