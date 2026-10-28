@@ -55,6 +55,8 @@ export class HcNotificationOverlay extends LitElement {
 
   private _context?: CanvasRenderingContext2D | null;
 
+  private _textMeter?: CanvasRenderingContext2D | null;
+
   private _resizeObserver?: ResizeObserver;
 
   private _frame?: number;
@@ -88,7 +90,6 @@ export class HcNotificationOverlay extends LitElement {
       pointer-events: none;
       color: #f4f8ff;
       font-family: "Nunito", "Avenir Next", "Segoe UI", system-ui, sans-serif;
-      font-synthesis: none;
     }
 
     hc-notification-overlay[active] {
@@ -99,13 +100,14 @@ export class HcNotificationOverlay extends LitElement {
       position: absolute;
       inset: 0;
       opacity: 0;
-      background: rgba(2, 6, 15, 0.48);
-      backdrop-filter: blur(5px) saturate(0.82);
-      transition: opacity 360ms ease-out;
+      background: rgba(2, 6, 15, 0.8);
+      backdrop-filter: blur(11px) saturate(0.7);
+      transition: opacity 480ms ease-in-out;
     }
 
     hc-notification-overlay .frame {
       position: absolute;
+      z-index: 2;
       opacity: 0;
       filter: blur(7px);
       transition:
@@ -155,19 +157,15 @@ export class HcNotificationOverlay extends LitElement {
       width: 100%;
       max-height: 50vh;
       overflow: visible;
-      padding: 38px 44px;
-      border: 1px solid rgba(232, 241, 255, 0.16);
-      border-left: 5px solid rgba(var(--notification-color), 0.96);
-      border-radius: 26px;
-      background: linear-gradient(
-        145deg,
-        rgba(19, 34, 57, 0.98),
-        rgba(5, 11, 22, 0.98)
-      );
+      padding: 42px 48px;
+      border: 4px solid;
+      border-color: rgba(var(--notification-color), 0.86);
+      border-radius: 30px;
+      background: linear-gradient(148deg, #090f1c 0%, #030711 92%);
       box-shadow:
-        0 26px 72px rgba(0, 0, 0, 0.46),
-        inset 0 1px 0 rgba(255, 255, 255, 0.08),
-        0 12px 36px rgba(var(--notification-color), 0.12);
+        0 36px 100px rgba(0, 0, 0, 0.52),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+        0 0 35px rgba(var(--notification-color), 0.21);
       transition:
         padding 800ms cubic-bezier(0.22, 1, 0.3, 1),
         border-radius 800ms cubic-bezier(0.22, 1, 0.3, 1),
@@ -177,17 +175,17 @@ export class HcNotificationOverlay extends LitElement {
 
     hc-notification-overlay .frame.corner .card {
       max-height: 30vh;
-      padding: 16px 20px;
-      border-left-width: 4px;
-      border-radius: 18px;
+      padding: 21px 25px;
+      border-width: 2px;
+      border-radius: 22px;
       box-shadow:
-        0 18px 50px rgba(0, 0, 0, 0.42),
-        0 8px 24px rgba(var(--notification-color), 0.13);
+        0 15px 44px rgba(0, 0, 0, 0.43),
+        0 0 24px rgba(var(--notification-color), 0.24);
     }
 
     hc-notification-overlay .sparks {
       position: absolute;
-      z-index: 1;
+      z-index: 4;
       inset: -125px;
       width: calc(100% + 250px);
       height: calc(100% + 250px);
@@ -200,16 +198,13 @@ export class HcNotificationOverlay extends LitElement {
     }
 
     hc-notification-overlay .title {
-      margin-bottom: 13px;
+      margin-bottom: 16px;
       color: rgb(var(--notification-color));
-      font-size: clamp(12px, 1.15vw, 16px);
-      font-weight: 760;
-      letter-spacing: 0.15em;
+      font-size: clamp(13px, 1.35vw, 18px);
+      font-weight: 850;
+      letter-spacing: 0.19em;
       text-align: center;
       text-transform: uppercase;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
     }
 
     hc-notification-overlay .title[hidden] {
@@ -218,23 +213,24 @@ export class HcNotificationOverlay extends LitElement {
 
     hc-notification-overlay .message {
       margin: 0;
-      font-weight: 700;
-      line-height: 1.14;
-      letter-spacing: -0.026em;
-      overflow-wrap: anywhere;
-      white-space: pre-wrap;
+      font-weight: 760;
+      line-height: 1.13;
+      letter-spacing: -0.034em;
+      overflow-wrap: break-word;
+      text-wrap: balance;
       text-align: center;
+      transition:
+        font-size 800ms cubic-bezier(0.22, 1, 0.3, 1),
+        line-height 800ms cubic-bezier(0.22, 1, 0.3, 1);
     }
 
     hc-notification-overlay .frame.corner .title {
-      margin-bottom: 6px;
-      font-size: 11px;
-      text-align: left;
+      margin-bottom: 8px;
+      font-size: 10px;
     }
 
     hc-notification-overlay .frame.corner .message {
-      line-height: 1.16;
-      text-align: left;
+      line-height: 1.18;
     }
 
     hc-notification-overlay .measure {
@@ -242,10 +238,11 @@ export class HcNotificationOverlay extends LitElement {
       top: -10000px;
       left: -10000px;
       visibility: hidden;
-      overflow-wrap: anywhere;
-      white-space: pre-wrap;
-      font-weight: 700;
-      letter-spacing: -0.026em;
+      overflow-wrap: break-word;
+      white-space: normal;
+      text-wrap: balance;
+      font-weight: 760;
+      letter-spacing: -0.034em;
     }
 
     @media (max-width: 650px) {
@@ -265,14 +262,6 @@ export class HcNotificationOverlay extends LitElement {
       hc-notification-overlay .frame.corner {
         top: calc(100% - 20px);
         left: calc(100% - 20px);
-      }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      hc-notification-overlay .scrim,
-      hc-notification-overlay .frame,
-      hc-notification-overlay .card {
-        transition-duration: 0ms;
       }
     }
   `;
@@ -300,11 +289,11 @@ export class HcNotificationOverlay extends LitElement {
       this._dismissTimer = undefined;
     }
     this._runId += 1;
-    this._notification = notification;
-    this._phase = phase;
-    this._profile = profile;
-    this._entered = false;
     if (!notification || !phase || !profile) {
+      this._notification = undefined;
+      this._phase = undefined;
+      this._profile = undefined;
+      this._entered = false;
       const runId = this._runId;
       this._edgeSparks = [];
       this._burstSparks = [];
@@ -314,48 +303,64 @@ export class HcNotificationOverlay extends LitElement {
       }, 480);
       return;
     }
-    this.setAttribute("active", "");
+    const runId = this._runId;
+    void this._prepareAndShow(notification, phase, profile, runId);
+  }
+
+  private async _prepareAndShow(
+    notification: ReceiverNotification,
+    phase: NotificationPhase,
+    profile: NotificationProfile,
+    runId: number
+  ): Promise<void> {
+    if (!this._measure || !this._textMeter) await this.updateComplete;
+    await document.fonts?.ready;
+    if (runId !== this._runId) return;
+
+    this._notification = notification;
+    this._phase = phase;
+    this._profile = profile;
+    this._entered = false;
     this.style.setProperty("--notification-color", COLORS[notification.level]);
     this._phaseStarted = performance.now();
     this._lastTick = this._phaseStarted;
     this._seedBurst(
       phase === "corner" ? profile.cornerEnergy : profile.centerEnergy
     );
-    const runId = this._runId;
-    void this.updateComplete.then(() => {
-      if (runId !== this._runId) return;
-      this._fitTypography();
-      requestAnimationFrame(() =>
-        requestAnimationFrame(() => {
-          if (runId !== this._runId) return;
-          this._entered = true;
-          this._resizeCanvas();
-          this._startAnimation();
-        })
-      );
-    });
+    this._fitTypography();
+    await this.updateComplete;
+    if (runId !== this._runId) return;
+
+    this.setAttribute("active", "");
+    await this.updateComplete;
+    if (runId !== this._runId) return;
+
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        if (runId !== this._runId) return;
+        this._entered = true;
+        this._resizeCanvas();
+        this._startAnimation();
+      })
+    );
   }
 
   protected firstUpdated(): void {
     this._context = this._canvas?.getContext("2d");
+    this._textMeter = document.createElement("canvas").getContext("2d");
     const card = this._card;
     if (card && typeof ResizeObserver !== "undefined") {
       this._resizeObserver = new ResizeObserver(() => {
-        this._fitTypography();
         this._resizeCanvas();
       });
       this._resizeObserver.observe(card);
     }
     window.addEventListener("resize", this._handleResize);
-    document.fonts?.ready.then(() => this._fitTypography());
   }
 
   protected updated(): void {
     this._context = this._canvas?.getContext("2d");
-    if (this._notification) {
-      this._fitTypography();
-      this._resizeCanvas();
-    }
+    this._resizeCanvas();
   }
 
   public disconnectedCallback(): void {
@@ -376,9 +381,10 @@ export class HcNotificationOverlay extends LitElement {
     const role = notification?.level === "emergency" ? "alert" : "status";
     const messageStyle = styleMap({
       fontSize: this._messageSize ? `${this._messageSize}px` : undefined,
-      textAlign: corner ? "left" : "center",
+      lineHeight: corner ? "1.18" : "1.13",
+      textAlign: this._textAlign,
     });
-    const titleStyle = styleMap({ textAlign: corner ? "left" : "center" });
+    const titleStyle = styleMap({ textAlign: this._textAlign });
     return html`
       <div class="scrim" aria-hidden="true"></div>
       <section
@@ -400,7 +406,7 @@ export class HcNotificationOverlay extends LitElement {
               ${notification?.title ?? nothing}
             </div>
             <h1 class="message" style=${messageStyle}>
-              ${this._displayMessage ?? notification?.message ?? nothing}
+              ${notification?.message ?? nothing}
             </h1>
           </div>
         </article>
@@ -413,7 +419,7 @@ export class HcNotificationOverlay extends LitElement {
 
   @state() private _messageSize = 0;
 
-  @state() private _displayMessage?: string;
+  @state() private _textAlign: "center" | "left" = "center";
 
   private _handleResize = () => {
     this._fitTypography();
@@ -425,81 +431,150 @@ export class HcNotificationOverlay extends LitElement {
     const phase = this._phase;
     if (!notification || !phase) return;
     const measure = this._measure;
-    if (!measure) return;
+    const textMeter = this._textMeter;
+    if (!measure || !textMeter) return;
     const corner = phase === "corner";
     const vw = window.innerWidth;
     const vh = window.innerHeight;
-    const maxWidth = Math.max(
-      120,
-      Math.min(corner ? 400 : 900, vw - (corner ? 48 : 100))
+    const compact = vw <= 650;
+    const centerPaddingX = compact ? 25 : 48;
+    const centerPaddingY = compact || vh <= 620 ? 27 : 42;
+    const centerMaxWidth = Math.max(
+      145,
+      Math.min(925, vw - (compact ? 42 : 100))
     );
-    const minWidth = Math.min(maxWidth, vw * (corner ? 0.135 : 0.26));
-    const paddingX = corner ? 42 : vw <= 650 ? 50 : 88;
-    const paddingY = corner ? 36 : vw <= 650 || vh <= 620 ? 56 : 78;
-    const titleHeight = notification.title ? (corner ? 28 : 40) : 0;
-    const maxHeight = Math.max(
-      34,
-      vh * (corner ? 0.3 : 0.5) - paddingY - titleHeight - 8
+    const centerMinWidth = Math.min(centerMaxWidth, (26 / 100) * vw);
+    const cornerMaxWidth = Math.max(
+      100,
+      Math.min(425, vw - (compact ? 32 : 68))
     );
-    const textWidth = Math.max(70, maxWidth - paddingX - 8);
-    const lineHeight = corner ? 1.16 : 1.14;
-    const maxFont = corner
-      ? Math.min(44, Math.max(22, vw * 0.032))
-      : Math.min(164, Math.max(58, vw * 0.14));
-    const minFont = corner ? 18 : 24;
+    const cornerMinWidth = Math.min(cornerMaxWidth, (14 / 100) * vw);
+    const centerHeight = Math.max(
+      24,
+      vh * 0.5 -
+        2 * centerPaddingY -
+        8 -
+        (notification.title ? (compact ? 33 : 37) : 0)
+    );
+    const cornerHeight = Math.max(
+      20,
+      vh * 0.3 - 21 - 23 - 5 - (notification.title ? 25 : 0)
+    );
+    const centerTextWidth = centerMaxWidth - 2 * centerPaddingX - 8;
+    const cornerTextWidth = cornerMaxWidth - 50 - 4;
     const family = getComputedStyle(this).fontFamily;
-    measure.style.width = `${textWidth}px`;
-    measure.style.fontFamily = family;
-    measure.style.lineHeight = String(lineHeight);
-    const original = Array.from(notification.message);
-
-    const heightAt = (text: string, fontSize: number): number => {
-      measure.style.fontSize = `${fontSize}px`;
-      measure.textContent = text;
-      return measure.getBoundingClientRect().height;
+    const weight = "760";
+    const message = notification.message;
+    const measureWidth = (text: string, fontSize: number): number => {
+      textMeter.font = `${weight} ${fontSize}px ${family}`;
+      return Math.max(
+        1,
+        textMeter.measureText(text).width +
+          (Array.from(text).length - 1) * fontSize * -0.034
+      );
+    };
+    const multilineFontSize = (
+      width: number,
+      height: number,
+      maxFont: number,
+      lineHeight: number
+    ): number => {
+      measure.style.width = `${width}px`;
+      measure.style.fontFamily = family;
+      measure.style.fontWeight = weight;
+      measure.style.lineHeight = String(lineHeight);
+      measure.style.fontSize = `${maxFont}px`;
+      measure.textContent = message;
+      let low = 9;
+      let high = maxFont;
+      for (let index = 0; index < 21; index++) {
+        const middle = (low + high) / 2;
+        measure.style.fontSize = `${middle}px`;
+        if (measure.getBoundingClientRect().height <= height) low = middle;
+        else high = middle;
+      }
+      return low;
+    };
+    const singleLineFontSize = (
+      maxFont: number,
+      width: number,
+      height: number
+    ): number => {
+      let low = 1;
+      let high = Math.min(maxFont, height / 1.13);
+      for (let index = 0; index < 21; index++) {
+        const middle = (low + high) / 2;
+        if (measureWidth(message, middle) <= width) low = middle;
+        else high = middle;
+      }
+      return low;
     };
 
-    let display = notification.message;
-    let low = minFont;
-    let high = maxFont;
-    if (heightAt(display, low) > maxHeight) {
-      let left = 0;
-      let right = original.length;
-      while (left < right) {
-        const middle = Math.ceil((left + right) / 2);
-        if (
-          heightAt(`${original.slice(0, middle).join("")}…`, minFont) <=
-          maxHeight
-        ) {
-          left = middle;
-        } else {
-          right = middle - 1;
-        }
+    let fontSize: number;
+    let cardWidth: number;
+    let textAlign: "center" | "left";
+    if (corner) {
+      const oneLineSize = singleLineFontSize(
+        Math.max(23, Math.min(54, vw * 0.039)),
+        cornerTextWidth,
+        cornerHeight
+      );
+      if (
+        oneLineSize >= Math.max(15, Math.min(23, vw * 0.02)) &&
+        !message.includes("\n")
+      ) {
+        fontSize = oneLineSize;
+        textAlign = "center";
+        cardWidth = Math.max(
+          cornerMinWidth,
+          Math.min(
+            cornerMaxWidth,
+            Math.ceil(measureWidth(message, fontSize) + 50 + 10)
+          )
+        );
+      } else {
+        fontSize = multilineFontSize(
+          cornerTextWidth,
+          cornerHeight,
+          Math.max(18, Math.min(28, vw * 0.025)),
+          1.18
+        );
+        textAlign = "left";
+        cardWidth = cornerMaxWidth;
       }
-      display = `${original.slice(0, left).join("")}…`;
-      high = minFont;
+    } else {
+      const oneLineSize = singleLineFontSize(
+        Math.max(58, Math.min(172, vw * 0.145)),
+        Math.min(centerTextWidth, 740),
+        centerHeight
+      );
+      if (
+        oneLineSize >= Math.max(23, Math.min(46, vw * 0.038)) &&
+        !message.includes("\n")
+      ) {
+        fontSize = oneLineSize;
+        textAlign = "center";
+        cardWidth = Math.max(
+          centerMinWidth,
+          Math.min(
+            centerMaxWidth,
+            Math.ceil(measureWidth(message, fontSize) + centerPaddingX * 2 + 15)
+          )
+        );
+      } else {
+        fontSize = multilineFontSize(
+          centerTextWidth,
+          centerHeight,
+          Math.max(27, Math.min(66, vw * 0.057)),
+          1.13
+        );
+        textAlign = "left";
+        cardWidth = centerMaxWidth;
+      }
     }
-    for (let index = 0; index < 16; index++) {
-      const middle = (low + high) / 2;
-      if (heightAt(display, middle) <= maxHeight) low = middle;
-      else high = middle;
-    }
-    const fontSize = Math.max(minFont, low);
-    measure.style.fontSize = `${fontSize}px`;
-    measure.style.width = "max-content";
-    measure.style.whiteSpace = "pre";
-    measure.textContent = display;
-    const singleLineWidth = measure.getBoundingClientRect().width;
-    const oneLine = !display.includes("\n") && singleLineWidth <= textWidth;
-    this._displayMessage =
-      display === notification.message ? undefined : display;
     this._messageSize = fontSize;
-    this._cardSize = oneLine
-      ? Math.max(
-          minWidth,
-          Math.min(maxWidth, Math.ceil(singleLineWidth + paddingX + 15))
-        )
-      : maxWidth;
+    this._cardSize = cardWidth;
+    this._textAlign = textAlign;
   }
 
   private _resizeCanvas(): void {
