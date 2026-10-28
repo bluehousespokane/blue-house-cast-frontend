@@ -26,6 +26,12 @@ interface Spark {
   size: number;
 }
 
+interface NotificationLayout {
+  fontSize: number;
+  cardWidth: number;
+  textAlign: "center" | "left";
+}
+
 const EDGE_LIMIT = 175;
 const BURST_LIMIT = 250;
 
@@ -44,11 +50,17 @@ export class HcNotificationOverlay extends LitElement {
     HTMLCanvasElement | null
   >();
 
-  @query(".sparks")
-  private _canvas?: HTMLCanvasElement;
+  @query(".frame.center") private _centerFrame?: HTMLElement;
 
-  @query(".card")
-  private _card?: HTMLElement;
+  @query(".frame.corner") private _cornerFrame?: HTMLElement;
+
+  @query(".frame.center .sparks") private _centerCanvas?: HTMLCanvasElement;
+
+  @query(".frame.corner .sparks") private _cornerCanvas?: HTMLCanvasElement;
+
+  @query(".frame.center .card") private _centerCard?: HTMLElement;
+
+  @query(".frame.corner .card") private _cornerCard?: HTMLElement;
 
   @query(".measure")
   private _measure?: HTMLElement;
@@ -62,6 +74,8 @@ export class HcNotificationOverlay extends LitElement {
   private _frame?: number;
 
   private _dismissTimer?: number;
+
+  private _moveTimer?: number;
 
   private _lastPaint = 0;
 
@@ -80,6 +94,14 @@ export class HcNotificationOverlay extends LitElement {
   private _cardHeight = 0;
 
   private _runId = 0;
+
+  private get _canvas(): HTMLCanvasElement | undefined {
+    return this._phase === "corner" ? this._cornerCanvas : this._centerCanvas;
+  }
+
+  private get _card(): HTMLElement | undefined {
+    return this._phase === "corner" ? this._cornerCard : this._centerCard;
+  }
 
   static styles = css`
     hc-notification-overlay {
@@ -115,27 +137,22 @@ export class HcNotificationOverlay extends LitElement {
       opacity: 0;
       filter: blur(7px);
       transition:
-        left 800ms cubic-bezier(0.22, 1, 0.3, 1),
-        top 800ms cubic-bezier(0.22, 1, 0.3, 1),
-        width 800ms cubic-bezier(0.22, 1, 0.3, 1),
         transform 800ms cubic-bezier(0.22, 1, 0.3, 1),
         opacity 800ms cubic-bezier(0.22, 1, 0.3, 1),
         filter 800ms cubic-bezier(0.22, 1, 0.3, 1);
     }
 
-    hc-notification-overlay[active] .scrim.center {
+    hc-notification-overlay[active]:not([moving]) .scrim.center {
       opacity: 1;
     }
 
-    hc-notification-overlay[active] .frame {
-      opacity: 1;
-      filter: blur(0);
+    hc-notification-overlay[moving] .scrim.center {
+      backdrop-filter: none;
     }
 
-    hc-notification-overlay[exiting] .frame {
-      opacity: 0;
+    hc-notification-overlay[active] .frame.center {
+      opacity: 1;
       filter: blur(0);
-      transition: opacity 480ms ease-in-out;
     }
 
     hc-notification-overlay[preparing] .frame,
@@ -163,7 +180,32 @@ export class HcNotificationOverlay extends LitElement {
     hc-notification-overlay .frame.corner {
       top: calc(100% - 34px);
       left: calc(100% - 34px);
+      filter: blur(0);
       transform: translate(-100%, -100%);
+      transition: opacity 200ms ease-in-out 600ms;
+    }
+
+    hc-notification-overlay[active][moving] .frame.center {
+      opacity: 0;
+      transform: translate(
+          calc(-50% + var(--flight-x, 0px)),
+          calc(-50% + var(--flight-y, 0px))
+        )
+        scale(var(--flight-scale, 1));
+      transition:
+        transform 800ms cubic-bezier(0.22, 1, 0.3, 1),
+        opacity 200ms ease-in-out 600ms;
+    }
+
+    hc-notification-overlay[active][moving] .frame.corner {
+      opacity: 1;
+    }
+
+    hc-notification-overlay[exiting] .frame.center,
+    hc-notification-overlay[exiting] .frame.corner {
+      opacity: 0;
+      filter: blur(0);
+      transition: opacity 480ms ease-in-out;
     }
 
     hc-notification-overlay .card {
@@ -304,6 +346,10 @@ export class HcNotificationOverlay extends LitElement {
       window.clearTimeout(this._dismissTimer);
       this._dismissTimer = undefined;
     }
+    if (this._moveTimer !== undefined) {
+      window.clearTimeout(this._moveTimer);
+      this._moveTimer = undefined;
+    }
     this._runId += 1;
     if (!notification || !phase || !profile) {
       const runId = this._runId;
@@ -313,6 +359,8 @@ export class HcNotificationOverlay extends LitElement {
       const finish = () => {
         if (runId !== this._runId) return;
         this.removeAttribute("exiting");
+        this.removeAttribute("moving");
+        this._clearFlightOverrides();
         this._notification = undefined;
         this._phase = undefined;
         this._profile = undefined;
@@ -320,21 +368,95 @@ export class HcNotificationOverlay extends LitElement {
         this._dismissTimer = undefined;
       };
       if (this.hasAttribute("active")) {
+        const interruptedFrames: HTMLElement[] = [];
+        if (this.hasAttribute("moving") && this._phase === "center") {
+          for (const frame of [this._centerFrame, this._cornerFrame]) {
+            if (!frame) continue;
+            const style = getComputedStyle(frame);
+            if (frame === this._centerFrame) {
+              frame.style.transform = style.transform;
+            }
+            frame.style.opacity = style.opacity;
+            frame.style.transition = "none";
+            interruptedFrames.push(frame);
+          }
+          void this._centerFrame?.offsetWidth;
+        }
         this.setAttribute("exiting", "");
         this.removeAttribute("active");
+        for (const frame of interruptedFrames) {
+          frame.style.transition = "opacity 480ms ease-in-out";
+          frame.style.opacity = "0";
+        }
         this._dismissTimer = window.setTimeout(finish, 480);
       } else {
         finish();
       }
       return;
     }
-    if (phase === "center") {
-      this.setAttribute("preparing", "");
-      this.removeAttribute("active");
-      this.removeAttribute("exiting");
-    }
     const runId = this._runId;
+    if (
+      phase === "corner" &&
+      this._phase === "center" &&
+      this._notification?.requestId === notification.requestId &&
+      this.hasAttribute("active") &&
+      this._startCornerTransition(profile, runId)
+    ) {
+      return;
+    }
+    this.setAttribute("preparing", "");
+    this.removeAttribute("active");
+    this.removeAttribute("exiting");
+    this.removeAttribute("moving");
+    this._clearFlightOverrides();
     void this._prepareAndShow(notification, phase, profile, runId);
+  }
+
+  private _clearFlightOverrides(): void {
+    for (const frame of [this._centerFrame, this._cornerFrame]) {
+      frame?.style.removeProperty("transform");
+      frame?.style.removeProperty("opacity");
+      frame?.style.removeProperty("transition");
+    }
+  }
+
+  private _startCornerTransition(
+    profile: NotificationProfile,
+    runId: number
+  ): boolean {
+    const center = this._centerFrame?.getBoundingClientRect();
+    const corner = this._cornerFrame?.getBoundingClientRect();
+    if (!center?.width || !center.height || !corner?.width || !corner.height) {
+      return false;
+    }
+    const x = corner.left + corner.width / 2 - center.left - center.width / 2;
+    const y = corner.top + corner.height / 2 - center.top - center.height / 2;
+    const scale = Math.min(
+      1,
+      corner.width / center.width,
+      corner.height / center.height
+    );
+    this.style.setProperty("--flight-x", `${x}px`);
+    this.style.setProperty("--flight-y", `${y}px`);
+    this.style.setProperty("--flight-scale", String(scale));
+    this._phaseStarted = performance.now();
+    this._lastTick = this._phaseStarted;
+    this.setAttribute("moving", "");
+    this._startAnimation();
+    this._moveTimer = window.setTimeout(() => {
+      this._moveTimer = undefined;
+      if (runId !== this._runId) return;
+      this._stopAnimation();
+      this._phase = "corner";
+      this._profile = profile;
+      this._seedBurst(profile.cornerEnergy);
+      void this.updateComplete.then(() => {
+        if (runId !== this._runId) return;
+        this._resizeCanvas();
+        this._startAnimation();
+      });
+    }, 800);
+    return true;
   }
 
   private async _prepareAndShow(
@@ -361,12 +483,11 @@ export class HcNotificationOverlay extends LitElement {
     await this.updateComplete;
     if (runId !== this._runId) return;
 
-    if (phase === "center") {
-      // Apply the final layout while transitions are disabled and the overlay
-      // is hidden, before starting the supplied center-entry animation.
-      void this._card?.offsetWidth;
-      this.removeAttribute("preparing");
-    }
+    // Both layouts are applied while transitions are disabled and hidden.
+    void this._centerCard?.offsetWidth;
+    void this._cornerCard?.offsetWidth;
+    if (phase === "corner") this.setAttribute("moving", "");
+    this.removeAttribute("preparing");
     this.removeAttribute("exiting");
     this.setAttribute("active", "");
     await this.updateComplete;
@@ -385,12 +506,12 @@ export class HcNotificationOverlay extends LitElement {
   protected firstUpdated(): void {
     this._context = this._canvas?.getContext("2d");
     this._textMeter = document.createElement("canvas").getContext("2d");
-    const card = this._card;
-    if (card && typeof ResizeObserver !== "undefined") {
+    if (typeof ResizeObserver !== "undefined") {
       this._resizeObserver = new ResizeObserver(() => {
         this._resizeCanvas();
       });
-      this._resizeObserver.observe(card);
+      if (this._centerCard) this._resizeObserver.observe(this._centerCard);
+      if (this._cornerCard) this._resizeObserver.observe(this._cornerCard);
     }
     window.addEventListener("resize", this._handleResize);
   }
@@ -406,6 +527,10 @@ export class HcNotificationOverlay extends LitElement {
       window.clearTimeout(this._dismissTimer);
       this._dismissTimer = undefined;
     }
+    if (this._moveTimer !== undefined) {
+      window.clearTimeout(this._moveTimer);
+      this._moveTimer = undefined;
+    }
     this._resizeObserver?.disconnect();
     this._resizeObserver = undefined;
     window.removeEventListener("resize", this._handleResize);
@@ -413,50 +538,64 @@ export class HcNotificationOverlay extends LitElement {
   }
 
   protected render(): TemplateResult {
-    const corner = this._phase === "corner";
     const notification = this._notification;
     const role = notification?.level === "emergency" ? "alert" : "status";
-    const messageStyle = styleMap({
-      fontSize: this._messageSize ? `${this._messageSize}px` : undefined,
-      lineHeight: corner ? "1.18" : "1.13",
-      textAlign: this._textAlign,
-    });
-    const titleStyle = styleMap({ textAlign: this._textAlign });
     return html`
-      <div class="scrim ${corner ? "" : "center"}" aria-hidden="true"></div>
+      <div class="scrim center" aria-hidden="true"></div>
       <section
-        class="frame ${corner ? "corner" : "center"} ${this._entered ? "entered" : ""}"
-        style=${styleMap({ width: this._cardSize ? `${this._cardSize}px` : undefined })}
+        class="frame center ${this._entered ? "entered" : ""}"
+        style=${styleMap({ width: this._centerLayout ? `${this._centerLayout.cardWidth}px` : undefined })}
         role=${role}
         aria-live=${role === "alert" ? "assertive" : "polite"}
         aria-atomic="true"
         aria-relevant="text"
       >
-        <article class="card">
-          <canvas class="sparks" aria-hidden="true"></canvas>
-          <div class="content">
-            <div
-              class="title"
-              style=${titleStyle}
-              ?hidden=${!notification?.title}
-            >
-              ${notification?.title ?? nothing}
-            </div>
-            <h1 class="message" style=${messageStyle}>
-              ${notification?.message ?? nothing}
-            </h1>
-          </div>
-        </article>
+        ${this._renderCard(notification, this._centerLayout, false)}
+      </section>
+      <section
+        class="frame corner"
+        style=${styleMap({ width: this._cornerLayout ? `${this._cornerLayout.cardWidth}px` : undefined })}
+        aria-hidden="true"
+      >
+        ${this._renderCard(notification, this._cornerLayout, true)}
       </section>
       <div class="measure" aria-hidden="true"></div>
     `;
   }
 
-  @state() private _cardSize = 0;
+  private _renderCard(
+    notification: ReceiverNotification | undefined,
+    layout: NotificationLayout | undefined,
+    corner: boolean
+  ): TemplateResult {
+    const messageStyle = styleMap({
+      fontSize: layout ? `${layout.fontSize}px` : undefined,
+      lineHeight: corner ? "1.18" : "1.13",
+      textAlign: layout?.textAlign ?? "center",
+    });
+    const titleStyle = styleMap({ textAlign: layout?.textAlign ?? "center" });
+    return html`
+      <article class="card">
+        <canvas class="sparks" aria-hidden="true"></canvas>
+        <div class="content">
+          <div
+            class="title"
+            style=${titleStyle}
+            ?hidden=${!notification?.title}
+          >
+            ${notification?.title ?? nothing}
+          </div>
+          <h1 class="message" style=${messageStyle}>
+            ${notification?.message ?? nothing}
+          </h1>
+        </div>
+      </article>
+    `;
+  }
 
-  @state() private _messageSize = 0;
+  @state() private _centerLayout?: NotificationLayout;
 
-  @state() private _textAlign: "center" | "left" = "center";
+  @state() private _cornerLayout?: NotificationLayout;
 
   private _handleResize = () => {
     this._fitTypography();
@@ -465,11 +604,21 @@ export class HcNotificationOverlay extends LitElement {
 
   private _fitTypography(): void {
     const notification = this._notification;
-    const phase = this._phase;
-    if (!notification || !phase) return;
+    if (!notification) return;
+    const center = this._calculateTypography(notification, "center");
+    const corner = this._calculateTypography(notification, "corner");
+    if (!center || !corner) return;
+    this._centerLayout = center;
+    this._cornerLayout = corner;
+  }
+
+  private _calculateTypography(
+    notification: ReceiverNotification,
+    phase: NotificationPhase
+  ): NotificationLayout | undefined {
     const measure = this._measure;
     const textMeter = this._textMeter;
-    if (!measure || !textMeter) return;
+    if (!measure || !textMeter) return undefined;
     const corner = phase === "corner";
     const vw = window.innerWidth;
     const vh = window.innerHeight;
@@ -609,9 +758,7 @@ export class HcNotificationOverlay extends LitElement {
         cardWidth = centerMaxWidth;
       }
     }
-    this._messageSize = fontSize;
-    this._cardSize = cardWidth;
-    this._textAlign = textAlign;
+    return { fontSize, cardWidth, textAlign };
   }
 
   private _resizeCanvas(): void {
