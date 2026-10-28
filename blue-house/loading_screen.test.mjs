@@ -359,14 +359,14 @@ test("loading palette fades in and out without replacing particles", async () =>
   assert.equal(api.getPerformance().particleCount, count);
 });
 
-test("loading state eases in over one second and returns over 800ms", async () => {
+test("loading state eases in over 625ms and returns over 800ms", async () => {
   const { api, advance } = receiver();
   await advance(800);
   api.setPhase("mounting");
-  await advance(500);
+  await advance(312);
   assert.ok(api.getPerformance().loadingMix > 0.8);
   assert.ok(api.getPerformance().loadingMix < 1);
-  await advance(500);
+  await advance(313);
   assert.equal(api.getPerformance().loadingMix, 1);
   api.setPhase("mounted");
   await advance(400);
