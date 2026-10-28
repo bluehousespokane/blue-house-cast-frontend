@@ -2,6 +2,12 @@ const PARTICLE_EDGE_PADDING = 24;
 
 (() => {
   const loader = document.getElementById("cast-loading-screen");
+  const ambientScreen = document.getElementById("cast-ambient-screen");
+  const ambientTime = document.getElementById("cast-ambient-time");
+  const ambientDate = document.getElementById("cast-ambient-date");
+  const ambientOutside = document.getElementById("cast-ambient-outside");
+  const ambientMeal = document.getElementById("cast-ambient-meal");
+  const ambientLoading = document.getElementById("cast-ambient-loading");
   const brightnessOverlay = document.getElementById("cast-brightness-overlay");
   const vignetteOverlay = document.getElementById("cast-vignette-overlay");
   let canvas = document.getElementById("cast-loading-particles");
@@ -14,7 +20,8 @@ const PARTICLE_EDGE_PADDING = 24;
     );
     if (
       cachedSettings.desktop === "particles" ||
-      cachedSettings.desktop === "black"
+      cachedSettings.desktop === "black" ||
+      cachedSettings.desktop === "ambient"
     ) {
       desktop = cachedSettings.desktop;
       settingsVersion = Number(cachedSettings.settingsVersion) || 0;
@@ -25,7 +32,8 @@ const PARTICLE_EDGE_PADDING = 24;
       ) {
         cachedBrightnessPct = cachedSettings.brightnessPct;
       }
-      if (canvas) canvas.hidden = desktop === "black";
+      if (canvas) canvas.hidden = desktop !== "particles";
+      if (ambientScreen) ambientScreen.hidden = desktop !== "ambient";
       if (vignetteOverlay && Number.isFinite(cachedSettings.vignetteSize)) {
         vignetteOverlay.style.setProperty(
           "--vignette-size",
@@ -43,6 +51,16 @@ const PARTICLE_EDGE_PADDING = 24;
     return;
   }
 
+  const updateDesktopAccessibility = () => {
+    const ambient = desktop === "ambient";
+    loader.setAttribute("role", ambient ? "region" : "status");
+    loader.setAttribute(
+      "aria-label",
+      ambient ? "The Blue House ambient screen" : "Loading Home Assistant"
+    );
+  };
+  updateDesktopAccessibility();
+
   const listeners = new Set();
   let revealTimer = 0;
   let transitionGeneration = 0;
@@ -51,8 +69,74 @@ const PARTICLE_EDGE_PADDING = 24;
   let openness = 0;
   let visible = true;
   let held = false;
+  let ambientTimeZone;
+  let ambientClockTimer = 0;
   let particlePhase = "startup";
   let brightnessPct = cachedBrightnessPct;
+
+  const updateAmbientClock = () => {
+    if (!ambientTime || !ambientDate) return;
+    const now = new Date();
+    const clockOptions = {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    };
+    const dateOptions = {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+    };
+    if (ambientTimeZone) {
+      clockOptions.timeZone = ambientTimeZone;
+      dateOptions.timeZone = ambientTimeZone;
+    }
+    try {
+      const parts = new Intl.DateTimeFormat(
+        "en-US",
+        clockOptions
+      ).formatToParts(now);
+      const hour = parts.find((part) => part.type === "hour")?.value;
+      const minute = parts.find((part) => part.type === "minute")?.value;
+      ambientTime.textContent = hour && minute ? `${hour}:${minute}` : "--:--";
+      ambientDate.textContent = new Intl.DateTimeFormat("en-US", dateOptions)
+        .format(now)
+        .toUpperCase();
+    } catch {
+      delete clockOptions.timeZone;
+      delete dateOptions.timeZone;
+      const parts = new Intl.DateTimeFormat(
+        "en-US",
+        clockOptions
+      ).formatToParts(now);
+      const hour = parts.find((part) => part.type === "hour")?.value;
+      const minute = parts.find((part) => part.type === "minute")?.value;
+      ambientTime.textContent = hour && minute ? `${hour}:${minute}` : "--:--";
+      ambientDate.textContent = new Intl.DateTimeFormat("en-US", dateOptions)
+        .format(now)
+        .toUpperCase();
+    }
+  };
+
+  const scheduleAmbientClock = () => {
+    window.clearTimeout(ambientClockTimer);
+    ambientClockTimer = 0;
+    if (
+      desktop !== "ambient" ||
+      !visible ||
+      document.visibilityState === "hidden"
+    ) {
+      return;
+    }
+    updateAmbientClock();
+    const now = new Date();
+    ambientClockTimer = window.setTimeout(
+      scheduleAmbientClock,
+      60000 - now.getSeconds() * 1000 - now.getMilliseconds() + 50
+    );
+  };
+
+  document.addEventListener("visibilitychange", scheduleAmbientClock);
   if (brightnessOverlay && brightnessPct !== 100) {
     brightnessOverlay.style.transitionDuration = "0ms";
     brightnessOverlay.style.opacity = String((100 - brightnessPct) / 100);
@@ -166,6 +250,7 @@ const PARTICLE_EDGE_PADDING = 24;
     const from = openness;
     loader.hidden = false;
     visible = true;
+    scheduleAmbientClock();
     notifyVisibility();
     sendParticles(
       "setRunning",
@@ -196,6 +281,8 @@ const PARTICLE_EDGE_PADDING = 24;
         }
         visible = target === 0;
         loader.hidden = !visible;
+        if (target === 1 && ambientLoading) ambientLoading.hidden = true;
+        scheduleAmbientClock();
         sendParticles(
           "setRunning",
           desktop === "particles" &&
@@ -258,7 +345,9 @@ const PARTICLE_EDGE_PADDING = 24;
     coverImmediately,
     setDesktop(nextDesktop, nextSettingsVersion) {
       if (
-        (nextDesktop !== "particles" && nextDesktop !== "black") ||
+        (nextDesktop !== "particles" &&
+          nextDesktop !== "black" &&
+          nextDesktop !== "ambient") ||
         !Number.isInteger(nextSettingsVersion) ||
         nextSettingsVersion < settingsVersion
       ) {
@@ -266,7 +355,10 @@ const PARTICLE_EDGE_PADDING = 24;
       }
       desktop = nextDesktop;
       settingsVersion = nextSettingsVersion;
-      if (canvas) canvas.hidden = desktop === "black";
+      updateDesktopAccessibility();
+      if (canvas) canvas.hidden = desktop !== "particles";
+      if (ambientScreen) ambientScreen.hidden = desktop !== "ambient";
+      scheduleAmbientClock();
       sendParticles(
         "setRunning",
         desktop === "particles" &&
@@ -276,6 +368,20 @@ const PARTICLE_EDGE_PADDING = 24;
       return true;
     },
     getDesktop: () => desktop,
+    setAmbientData(data, timeZone) {
+      ambientTimeZone = typeof timeZone === "string" ? timeZone : undefined;
+      if (ambientOutside) {
+        ambientOutside.textContent = data.outside;
+        ambientOutside.setAttribute("aria-label", data.outsideLabel);
+        ambientOutside.title = data.outside;
+      }
+      if (ambientMeal) {
+        ambientMeal.textContent = data.meal;
+        ambientMeal.setAttribute("aria-label", data.mealLabel);
+        ambientMeal.title = data.meal;
+      }
+      scheduleAmbientClock();
+    },
     getVignette: () => {
       const value = vignetteOverlay?.style.getPropertyValue("--vignette-size");
       return value ? Math.max(0, Number.parseFloat(value) || 0) : 0;
@@ -293,6 +399,11 @@ const PARTICLE_EDGE_PADDING = 24;
     getBrightness: () => brightnessPct,
     setPhase(nextPhase) {
       particlePhase = nextPhase;
+      if (ambientLoading && nextPhase === "mounting") {
+        ambientLoading.hidden = false;
+      } else if (ambientLoading && nextPhase === "unloaded") {
+        ambientLoading.hidden = true;
+      }
       sendParticles("setPhase", nextPhase);
     },
     subscribe(listener) {
@@ -303,6 +414,7 @@ const PARTICLE_EDGE_PADDING = 24;
   };
   window.addEventListener("cast-loading-ready", scheduleReveal);
   window.addEventListener("cast-loading-error", () => void hide());
+  scheduleAmbientClock();
 
   if (!canvas) {
     resolveReady();

@@ -40,6 +40,180 @@
         touch-action: none;
       }
 
+      #cast-ambient-screen {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        overflow: hidden;
+        color: #f4f8ff;
+        font-family: "Avenir Next", "Segoe UI", system-ui, sans-serif;
+        pointer-events: none;
+        background:
+          radial-gradient(ellipse 72vw 70vh at 90% 5%, rgba(57, 99, 174, 0.32), transparent 70%),
+          radial-gradient(ellipse 65vw 72vh at 3% 100%, rgba(25, 78, 142, 0.38), transparent 72%),
+          linear-gradient(135deg, #0d1421 0%, #162033 55%, #233554 100%);
+      }
+
+      #cast-ambient-screen[hidden] {
+        display: none;
+      }
+
+      #cast-ambient-screen::before {
+        position: absolute;
+        right: -26vmax;
+        bottom: -56vmax;
+        width: 85vmax;
+        height: 85vmax;
+        border: 1px solid rgba(166, 196, 255, 0.07);
+        border-radius: 50%;
+        box-shadow:
+          0 0 0 12vmax rgba(137, 176, 250, 0.018),
+          0 0 0 24vmax rgba(137, 176, 250, 0.018);
+        content: "";
+      }
+
+      .cast-ambient-title {
+        position: absolute;
+        top: clamp(26px, 5.2vh, 64px);
+        left: clamp(28px, 5.2vw, 92px);
+        margin: 0;
+        font-size: clamp(13px, 1.2vw, 18px);
+        font-weight: 800;
+        line-height: 1.3;
+        letter-spacing: 0.2em;
+      }
+
+      .cast-ambient-clock-wrap {
+        position: absolute;
+        top: 38%;
+        left: clamp(35px, 9vw, 160px);
+        transform: translateY(-37%);
+      }
+
+      .cast-ambient-time {
+        overflow: hidden;
+        font-size: clamp(115px, 19vw, 330px);
+        font-weight: 250;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -0.065em;
+        line-height: 0.85;
+        opacity: 0.86;
+        white-space: nowrap;
+      }
+
+      .cast-ambient-date {
+        margin-top: 30px;
+        font-size: clamp(12px, 1.2vw, 20px);
+        font-weight: 700;
+        letter-spacing: 0.35em;
+        opacity: 0.66;
+      }
+
+      .cast-ambient-details {
+        position: absolute;
+        right: clamp(25px, 7vw, 130px);
+        bottom: clamp(44px, 8vh, 100px);
+        left: clamp(35px, 9vw, 160px);
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: clamp(28px, 4vw, 72px);
+      }
+
+      .cast-ambient-detail {
+        min-width: 0;
+        padding-left: 22px;
+        border-left: 1px solid rgba(171, 195, 230, 0.24);
+      }
+
+      .cast-ambient-label {
+        display: block;
+        margin-bottom: 7px;
+        color: #a4b5d3;
+        font-size: clamp(11px, 0.8vw, 14px);
+        font-weight: 800;
+        letter-spacing: 0.18em;
+      }
+
+      .cast-ambient-value {
+        display: block;
+        overflow: hidden;
+        font-size: clamp(17px, 1.7vw, 27px);
+        font-weight: 650;
+        letter-spacing: -0.015em;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .cast-ambient-loading {
+        position: absolute;
+        right: 0;
+        bottom: clamp(12px, 2vh, 24px);
+        left: 0;
+        color: #c5d5ee;
+        font-size: clamp(12px, 0.8vw, 14px);
+        letter-spacing: 0.08em;
+        text-align: center;
+        text-shadow: 0 1px 8px #0d1421;
+      }
+
+      .cast-ambient-loading[hidden] {
+        display: none;
+      }
+
+      @media (max-width: 700px) {
+        .cast-ambient-clock-wrap {
+          top: 34%;
+          left: 7vw;
+        }
+
+        .cast-ambient-time {
+          font-size: clamp(78px, 21vw, 150px);
+        }
+
+        .cast-ambient-date {
+          margin-top: 18px;
+          font-size: 11px;
+          letter-spacing: 0.18em;
+        }
+
+        .cast-ambient-details {
+          right: 7vw;
+          bottom: 6vh;
+          left: 7vw;
+          gap: 22px;
+        }
+
+        .cast-ambient-detail {
+          padding-left: 13px;
+        }
+
+        .cast-ambient-value {
+          font-size: 14px;
+        }
+      }
+
+      @media (max-height: 430px) {
+        .cast-ambient-title {
+          top: 15px;
+        }
+
+        .cast-ambient-clock-wrap {
+          top: 34%;
+        }
+
+        .cast-ambient-time {
+          font-size: min(22vh, 20vw);
+        }
+
+        .cast-ambient-date {
+          margin-top: 12px;
+        }
+
+        .cast-ambient-details {
+          bottom: 18px;
+        }
+      }
+
       #cast-brightness-overlay {
         position: fixed;
         inset: 0;
@@ -53,7 +227,7 @@
       #cast-vignette-overlay {
         position: fixed;
         inset: 0;
-        z-index: 2147483646;
+        z-index: 2147483647;
         pointer-events: none;
         background:
           linear-gradient(
@@ -85,6 +259,26 @@
       aria-label="Loading Home Assistant"
     >
       <canvas id="cast-loading-particles" aria-hidden="true"></canvas>
+      <main id="cast-ambient-screen" aria-label="The Blue House ambient screen" hidden>
+        <h1 class="cast-ambient-title">THE BLUE HOUSE</h1>
+        <div class="cast-ambient-clock-wrap" role="timer" aria-live="off">
+          <div class="cast-ambient-time" id="cast-ambient-time">--:--</div>
+          <div class="cast-ambient-date" id="cast-ambient-date"></div>
+        </div>
+        <section class="cast-ambient-details" aria-label="Home at a glance">
+          <div class="cast-ambient-detail">
+            <span class="cast-ambient-label">Outside</span>
+            <span class="cast-ambient-value" id="cast-ambient-outside">Waiting for weather…</span>
+          </div>
+          <div class="cast-ambient-detail">
+            <span class="cast-ambient-label">Next meal</span>
+            <span class="cast-ambient-value" id="cast-ambient-meal">Waiting for meal plan…</span>
+          </div>
+        </section>
+        <div class="cast-ambient-loading" id="cast-ambient-loading" role="status" hidden>
+          Preparing dashboard
+        </div>
+      </main>
     </div>
     <div id="cast-vignette-overlay" aria-hidden="true"></div>
     <div id="cast-brightness-overlay" aria-hidden="true"></div>

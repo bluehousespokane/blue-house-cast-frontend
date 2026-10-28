@@ -43,7 +43,7 @@ export interface ReceiverStatusMessage extends BaseCastMessage {
     | "failed"
     | "unloaded";
   desiredVisible?: boolean;
-  desktop?: "particles" | "black";
+  desktop?: "particles" | "black" | "ambient";
   settingsVersion?: number;
   lastRequestId?: string;
   lastCommand?: string;

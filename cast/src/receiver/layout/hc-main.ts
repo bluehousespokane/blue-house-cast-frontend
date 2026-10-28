@@ -49,6 +49,8 @@ import { getPanelTitleFromUrlPath } from "../../../../src/data/panel";
 import { checkLovelaceConfig } from "../../../../src/panels/lovelace/common/check-lovelace-config";
 import { isRequestedLovelaceViewReady } from "../view_ready";
 import type { CastViewChanged } from "./hc-lovelace";
+import { getAmbientDisplayData } from "../ambient";
+import type { AmbientDisplayData } from "../ambient";
 
 const DEFAULT_CONFIG: LovelaceDashboardStrategyConfig = {
   strategy: {
@@ -68,8 +70,12 @@ interface ReceiverLoadingScreen {
   getPerformance(): LoadingPerformance;
   setBrightness(value: number): Promise<boolean>;
   getBrightness(): number;
-  setDesktop(desktop: "particles" | "black", settingsVersion: number): boolean;
-  getDesktop(): "particles" | "black";
+  setDesktop(
+    desktop: "particles" | "black" | "ambient",
+    settingsVersion: number
+  ): boolean;
+  getDesktop(): "particles" | "black" | "ambient";
+  setAmbientData(data: AmbientDisplayData, timeZone?: string): void;
   getVignette(): number;
   getSettingsVersion(): number;
   setVignette(size: number): boolean;
@@ -88,7 +94,7 @@ export class HcMain extends HassElement {
 
   @state() private _vignetteSize = 0;
 
-  @state() private _desktop: "particles" | "black" = "particles";
+  @state() private _desktop: "particles" | "black" | "ambient" = "particles";
 
   private _brightnessPct = 100;
 
@@ -149,7 +155,10 @@ export class HcMain extends HassElement {
 
   private _statusConnection?: Connection;
 
-  private _handleDataConnectionChange = () => this._sendStatus();
+  private _handleDataConnectionChange = () => {
+    if (this._desktop === "ambient") this._updateAmbientDisplay();
+    this._sendStatus();
+  };
 
   private _unsubLoadingScreen?: () => void;
 
@@ -334,6 +343,7 @@ export class HcMain extends HassElement {
     super.firstUpdated(changedProps);
     this._desktop =
       window.blueHouseCastLoadingScreen?.getDesktop() ?? "particles";
+    if (this._desktop === "ambient") this._updateAmbientDisplay();
     this._brightnessPct =
       window.blueHouseCastLoadingScreen?.getBrightness() ?? 100;
     this._vignetteSize = window.blueHouseCastLoadingScreen?.getVignette() ?? 0;
@@ -366,6 +376,9 @@ export class HcMain extends HassElement {
 
   protected updated(changedProps: PropertyValues<this>) {
     super.updated(changedProps);
+    if (changedProps.has("hass") && this._desktop === "ambient") {
+      this._updateAmbientDisplay();
+    }
     if (
       changedProps.has("hass") &&
       this.hass?.connection !== this._statusConnection
@@ -389,6 +402,19 @@ export class HcMain extends HassElement {
       );
       this._sendStatus();
     }
+  }
+
+  private _updateAmbientDisplay(): void {
+    const timeZone = this.hass?.config?.time_zone;
+    const states = this.hass?.states;
+    const data = getAmbientDisplayData(
+      states?.["weather.forecast_home"],
+      states?.["sensor.household_meals_display"],
+      new Date(),
+      timeZone,
+      !!this.hass?.connected
+    );
+    window.blueHouseCastLoadingScreen?.setAmbientData(data, timeZone);
   }
 
   private _sendStatus(senderId?: string) {
@@ -946,7 +972,9 @@ export class HcMain extends HassElement {
       return;
     }
     const valid =
-      (msg.desktop === "particles" || msg.desktop === "black") &&
+      (msg.desktop === "particles" ||
+        msg.desktop === "black" ||
+        msg.desktop === "ambient") &&
       Number.isInteger(msg.brightnessPct) &&
       msg.brightnessPct >= 0 &&
       msg.brightnessPct <= 100 &&
@@ -974,6 +1002,7 @@ export class HcMain extends HassElement {
     }
     if (!layer.setDesktop(msg.desktop, msg.settingsVersion)) return;
     this._desktop = msg.desktop;
+    if (this._desktop === "ambient") this._updateAmbientDisplay();
     this._vignetteSize = msg.vignetteSize;
     layer.setVignette(msg.vignetteSize);
     try {

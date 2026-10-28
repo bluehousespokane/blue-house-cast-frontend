@@ -51,7 +51,7 @@ export interface ApplySettingsMessage extends BaseCastMessage {
   sessionId?: string;
   requestId?: string;
   settingsVersion: number;
-  desktop: "particles" | "black";
+  desktop: "particles" | "black" | "ambient";
   brightnessPct: number;
   vignetteSize: number;
   keepAlive: boolean;
