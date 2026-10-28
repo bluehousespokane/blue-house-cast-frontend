@@ -82,7 +82,7 @@ foreground the app, replace a Lovelace view, or change receiver settings. The
 receiver advertises `notifications_v1` in status so Home Assistant can require
 a compatible live session before sending the action.
 
-The overlay always starts centered and moves to the fixed bottom-left corner.
+The overlay always starts centered and moves to the fixed bottom-right corner.
 Level profiles own the timings and animation energy: Routine 3/9 seconds,
 Notice 3/9, Important 5/15, and Emergency 10/30 for center/corner phases,
 including each 800 ms movement. Center energy rises from Routine through

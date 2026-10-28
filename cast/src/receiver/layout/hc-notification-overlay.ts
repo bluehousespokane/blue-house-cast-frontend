@@ -99,9 +99,9 @@ export class HcNotificationOverlay extends LitElement {
       position: absolute;
       inset: 0;
       opacity: 0;
-      background: rgba(2, 6, 15, 0.8);
-      backdrop-filter: blur(11px) saturate(0.7);
-      transition: opacity 480ms ease-in-out;
+      background: rgba(2, 6, 15, 0.48);
+      backdrop-filter: blur(5px) saturate(0.82);
+      transition: opacity 360ms ease-out;
     }
 
     hc-notification-overlay .frame {
@@ -143,9 +143,9 @@ export class HcNotificationOverlay extends LitElement {
     }
 
     hc-notification-overlay .frame.corner {
-      bottom: 34px;
-      left: 34px;
-      transform: none;
+      top: calc(100% - 34px);
+      left: calc(100% - 34px);
+      transform: translate(-100%, -100%);
     }
 
     hc-notification-overlay .card {
@@ -155,14 +155,19 @@ export class HcNotificationOverlay extends LitElement {
       width: 100%;
       max-height: 50vh;
       overflow: visible;
-      padding: 42px 48px;
-      border: 4px solid rgba(var(--notification-color), 0.86);
-      border-radius: 30px;
-      background: linear-gradient(148deg, #090f1c 0%, #030711 92%);
+      padding: 38px 44px;
+      border: 1px solid rgba(232, 241, 255, 0.16);
+      border-left: 5px solid rgba(var(--notification-color), 0.96);
+      border-radius: 26px;
+      background: linear-gradient(
+        145deg,
+        rgba(19, 34, 57, 0.98),
+        rgba(5, 11, 22, 0.98)
+      );
       box-shadow:
-        0 36px 100px rgba(0, 0, 0, 0.52),
-        inset 0 0 0 1px rgba(255, 255, 255, 0.06),
-        0 0 35px rgba(var(--notification-color), 0.21);
+        0 26px 72px rgba(0, 0, 0, 0.46),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08),
+        0 12px 36px rgba(var(--notification-color), 0.12);
       transition:
         padding 800ms cubic-bezier(0.22, 1, 0.3, 1),
         border-radius 800ms cubic-bezier(0.22, 1, 0.3, 1),
@@ -172,12 +177,12 @@ export class HcNotificationOverlay extends LitElement {
 
     hc-notification-overlay .frame.corner .card {
       max-height: 30vh;
-      padding: 21px 25px 23px;
-      border-width: 2px;
-      border-radius: 22px;
+      padding: 16px 20px;
+      border-left-width: 4px;
+      border-radius: 18px;
       box-shadow:
-        0 15px 44px rgba(0, 0, 0, 0.43),
-        0 0 24px rgba(var(--notification-color), 0.24);
+        0 18px 50px rgba(0, 0, 0, 0.42),
+        0 8px 24px rgba(var(--notification-color), 0.13);
     }
 
     hc-notification-overlay .sparks {
@@ -195,11 +200,11 @@ export class HcNotificationOverlay extends LitElement {
     }
 
     hc-notification-overlay .title {
-      margin-bottom: 16px;
+      margin-bottom: 13px;
       color: rgb(var(--notification-color));
-      font-size: clamp(13px, 1.35vw, 18px);
-      font-weight: 850;
-      letter-spacing: 0.19em;
+      font-size: clamp(12px, 1.15vw, 16px);
+      font-weight: 760;
+      letter-spacing: 0.15em;
       text-align: center;
       text-transform: uppercase;
       white-space: nowrap;
@@ -213,22 +218,22 @@ export class HcNotificationOverlay extends LitElement {
 
     hc-notification-overlay .message {
       margin: 0;
-      font-weight: 760;
-      line-height: 1.13;
-      letter-spacing: -0.034em;
+      font-weight: 700;
+      line-height: 1.14;
+      letter-spacing: -0.026em;
       overflow-wrap: anywhere;
       white-space: pre-wrap;
       text-align: center;
     }
 
     hc-notification-overlay .frame.corner .title {
-      margin-bottom: 8px;
-      font-size: 12px;
+      margin-bottom: 6px;
+      font-size: 11px;
       text-align: left;
     }
 
     hc-notification-overlay .frame.corner .message {
-      line-height: 1.18;
+      line-height: 1.16;
       text-align: left;
     }
 
@@ -239,8 +244,8 @@ export class HcNotificationOverlay extends LitElement {
       visibility: hidden;
       overflow-wrap: anywhere;
       white-space: pre-wrap;
-      font-weight: 760;
-      letter-spacing: -0.034em;
+      font-weight: 700;
+      letter-spacing: -0.026em;
     }
 
     @media (max-width: 650px) {
@@ -258,8 +263,8 @@ export class HcNotificationOverlay extends LitElement {
 
     @media (max-width: 650px) {
       hc-notification-overlay .frame.corner {
-        bottom: 20px;
-        left: 20px;
+        top: calc(100% - 20px);
+        left: calc(100% - 20px);
       }
     }
 
@@ -426,21 +431,21 @@ export class HcNotificationOverlay extends LitElement {
     const vh = window.innerHeight;
     const maxWidth = Math.max(
       120,
-      Math.min(corner ? 425 : 925, vw - (corner ? 68 : 100))
+      Math.min(corner ? 400 : 900, vw - (corner ? 48 : 100))
     );
-    const minWidth = Math.min(maxWidth, vw * (corner ? 0.14 : 0.26));
-    const paddingX = corner ? 50 : vw <= 650 ? 50 : 96;
-    const paddingY = corner ? 49 : vw <= 650 || vh <= 620 ? 56 : 84;
-    const titleHeight = notification.title ? (corner ? 32 : 43) : 0;
+    const minWidth = Math.min(maxWidth, vw * (corner ? 0.135 : 0.26));
+    const paddingX = corner ? 42 : vw <= 650 ? 50 : 88;
+    const paddingY = corner ? 36 : vw <= 650 || vh <= 620 ? 56 : 78;
+    const titleHeight = notification.title ? (corner ? 28 : 40) : 0;
     const maxHeight = Math.max(
       34,
       vh * (corner ? 0.3 : 0.5) - paddingY - titleHeight - 8
     );
     const textWidth = Math.max(70, maxWidth - paddingX - 8);
-    const lineHeight = corner ? 1.18 : 1.13;
+    const lineHeight = corner ? 1.16 : 1.14;
     const maxFont = corner
-      ? Math.min(54, Math.max(23, vw * 0.039))
-      : Math.min(172, Math.max(58, vw * 0.145));
+      ? Math.min(44, Math.max(22, vw * 0.032))
+      : Math.min(164, Math.max(58, vw * 0.14));
     const minFont = corner ? 18 : 24;
     const family = getComputedStyle(this).fontFamily;
     measure.style.width = `${textWidth}px`;
