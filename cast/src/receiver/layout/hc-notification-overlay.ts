@@ -15,6 +15,8 @@ const COLORS = {
   emergency: "255,104,119",
 } as const;
 
+const STYLE_ELEMENT_ID = "hc-notification-overlay-styles";
+
 interface Spark {
   position: number;
   age: number;
@@ -78,9 +80,9 @@ export class HcNotificationOverlay extends LitElement {
   private _runId = 0;
 
   static styles = css`
-    :host {
+    hc-notification-overlay {
       position: fixed;
-      z-index: 2147483646;
+      z-index: 2147483647;
       inset: 0;
       visibility: hidden;
       pointer-events: none;
@@ -89,11 +91,11 @@ export class HcNotificationOverlay extends LitElement {
       font-synthesis: none;
     }
 
-    :host([active]) {
+    hc-notification-overlay[active] {
       visibility: visible;
     }
 
-    .scrim {
+    hc-notification-overlay .scrim {
       position: absolute;
       inset: 0;
       opacity: 0;
@@ -102,7 +104,7 @@ export class HcNotificationOverlay extends LitElement {
       transition: opacity 480ms ease-in-out;
     }
 
-    .frame {
+    hc-notification-overlay .frame {
       position: absolute;
       opacity: 0;
       filter: blur(7px);
@@ -115,38 +117,38 @@ export class HcNotificationOverlay extends LitElement {
         filter 800ms cubic-bezier(0.22, 1, 0.3, 1);
     }
 
-    :host([active]) .scrim {
+    hc-notification-overlay[active] .scrim {
       opacity: 1;
     }
 
-    :host([active]) .frame {
+    hc-notification-overlay[active] .frame {
       opacity: 1;
       filter: blur(0);
     }
 
-    :host([active]) .frame.center:not(.entered) {
+    hc-notification-overlay[active] .frame.center:not(.entered) {
       opacity: 0;
       filter: blur(7px);
       transform: translate(-50%, -50%) scale(0.86);
     }
 
-    .frame.center {
+    hc-notification-overlay .frame.center {
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%) scale(0.86);
     }
 
-    :host([active]) .frame.center {
+    hc-notification-overlay[active] .frame.center {
       transform: translate(-50%, -50%) scale(1);
     }
 
-    .frame.corner {
+    hc-notification-overlay .frame.corner {
       bottom: 34px;
       left: 34px;
       transform: none;
     }
 
-    .card {
+    hc-notification-overlay .card {
       position: relative;
       isolation: isolate;
       box-sizing: border-box;
@@ -168,7 +170,7 @@ export class HcNotificationOverlay extends LitElement {
         box-shadow 800ms cubic-bezier(0.22, 1, 0.3, 1);
     }
 
-    .frame.corner .card {
+    hc-notification-overlay .frame.corner .card {
       max-height: 30vh;
       padding: 21px 25px 23px;
       border-width: 2px;
@@ -178,7 +180,7 @@ export class HcNotificationOverlay extends LitElement {
         0 0 24px rgba(var(--notification-color), 0.24);
     }
 
-    .sparks {
+    hc-notification-overlay .sparks {
       position: absolute;
       z-index: 1;
       inset: -125px;
@@ -187,12 +189,12 @@ export class HcNotificationOverlay extends LitElement {
       pointer-events: none;
     }
 
-    .content {
+    hc-notification-overlay .content {
       position: relative;
       z-index: 2;
     }
 
-    .title {
+    hc-notification-overlay .title {
       margin-bottom: 16px;
       color: rgb(var(--notification-color));
       font-size: clamp(13px, 1.35vw, 18px);
@@ -205,11 +207,11 @@ export class HcNotificationOverlay extends LitElement {
       text-overflow: ellipsis;
     }
 
-    .title[hidden] {
+    hc-notification-overlay .title[hidden] {
       display: none;
     }
 
-    .message {
+    hc-notification-overlay .message {
       margin: 0;
       font-weight: 760;
       line-height: 1.13;
@@ -219,18 +221,18 @@ export class HcNotificationOverlay extends LitElement {
       text-align: center;
     }
 
-    .frame.corner .title {
+    hc-notification-overlay .frame.corner .title {
       margin-bottom: 8px;
       font-size: 12px;
       text-align: left;
     }
 
-    .frame.corner .message {
+    hc-notification-overlay .frame.corner .message {
       line-height: 1.18;
       text-align: left;
     }
 
-    .measure {
+    hc-notification-overlay .measure {
       position: fixed;
       top: -10000px;
       left: -10000px;
@@ -242,33 +244,45 @@ export class HcNotificationOverlay extends LitElement {
     }
 
     @media (max-width: 650px) {
-      .frame.center .card {
+      hc-notification-overlay .frame.center .card {
         padding: 27px 25px 29px;
       }
     }
 
     @media (max-height: 620px) {
-      .frame.center .card {
+      hc-notification-overlay .frame.center .card {
         padding-top: 27px;
         padding-bottom: 27px;
       }
     }
 
     @media (max-width: 650px) {
-      .frame.corner {
+      hc-notification-overlay .frame.corner {
         bottom: 20px;
         left: 20px;
       }
     }
 
     @media (prefers-reduced-motion: reduce) {
-      .scrim,
-      .frame,
-      .card {
+      hc-notification-overlay .scrim,
+      hc-notification-overlay .frame,
+      hc-notification-overlay .card {
         transition-duration: 0ms;
       }
     }
   `;
+
+  protected createRenderRoot(): HTMLElement {
+    if (!document.getElementById(STYLE_ELEMENT_ID)) {
+      const style = document.createElement("style");
+      style.id = STYLE_ELEMENT_ID;
+      style.textContent = HcNotificationOverlay.styles.cssText;
+      document.head.append(style);
+    }
+    // The receiver's ambient and loading layers are document-level surfaces.
+    // Keep this transient overlay in the same paint tree so it can sit above them.
+    return this;
+  }
 
   public show(
     notification: ReceiverNotification | undefined,
