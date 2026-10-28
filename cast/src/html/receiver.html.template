@@ -49,8 +49,16 @@
         font-family: "Avenir Next", "Segoe UI", system-ui, sans-serif;
         pointer-events: none;
         background:
-          radial-gradient(ellipse 72vw 70vh at 90% 5%, rgba(57, 99, 174, 0.32), transparent 70%),
-          radial-gradient(ellipse 65vw 72vh at 3% 100%, rgba(25, 78, 142, 0.38), transparent 72%),
+          radial-gradient(
+            ellipse 72vw 70vh at 90% 5%,
+            rgba(57, 99, 174, 0.32),
+            transparent 70%
+          ),
+          radial-gradient(
+            ellipse 65vw 72vh at 3% 100%,
+            rgba(25, 78, 142, 0.38),
+            transparent 72%
+          ),
           linear-gradient(135deg, #0d1421 0%, #162033 55%, #233554 100%);
       }
 
@@ -253,13 +261,13 @@
     <%= renderTemplate("../../../src/html/_style_base.html.template") %>
   </head>
   <body>
-    <div
-      id="cast-loading-screen"
-      role="status"
-      aria-label="Loading Home Assistant"
-    >
+    <div id="cast-loading-screen">
       <canvas id="cast-loading-particles" aria-hidden="true"></canvas>
-      <main id="cast-ambient-screen" aria-label="The Blue House ambient screen" hidden>
+      <main
+        id="cast-ambient-screen"
+        aria-label="The Blue House ambient screen"
+        hidden
+      >
         <h1 class="cast-ambient-title">THE BLUE HOUSE</h1>
         <div class="cast-ambient-clock-wrap" role="timer" aria-live="off">
           <div class="cast-ambient-time" id="cast-ambient-time">--:--</div>
@@ -268,14 +276,23 @@
         <section class="cast-ambient-details" aria-label="Home at a glance">
           <div class="cast-ambient-detail">
             <span class="cast-ambient-label">Outside</span>
-            <span class="cast-ambient-value" id="cast-ambient-outside">Waiting for weather…</span>
+            <span class="cast-ambient-value" id="cast-ambient-outside"
+              >Waiting for weather…</span
+            >
           </div>
           <div class="cast-ambient-detail">
             <span class="cast-ambient-label">Next meal</span>
-            <span class="cast-ambient-value" id="cast-ambient-meal">Waiting for meal plan…</span>
+            <span class="cast-ambient-value" id="cast-ambient-meal"
+              >Waiting for meal plan…</span
+            >
           </div>
         </section>
-        <div class="cast-ambient-loading" id="cast-ambient-loading" role="status" hidden>
+        <div
+          class="cast-ambient-loading"
+          id="cast-ambient-loading"
+          role="status"
+          hidden
+        >
           Preparing dashboard
         </div>
       </main>

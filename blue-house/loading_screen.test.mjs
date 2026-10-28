@@ -45,6 +45,26 @@ function receiver({
   const draws = [];
   let frameDraws = [];
   const cover = { style: {}, hidden: false };
+  const ambientScreen = { hidden: true };
+  const ambientTime = { textContent: "" };
+  const ambientDate = { textContent: "" };
+  const ambientOutside = {
+    textContent: "",
+    title: "",
+    attributes: {},
+    setAttribute(name, value) {
+      this.attributes[name] = value;
+    },
+  };
+  const ambientMeal = {
+    textContent: "",
+    title: "",
+    attributes: {},
+    setAttribute(name, value) {
+      this.attributes[name] = value;
+    },
+  };
+  const ambientLoading = { hidden: true };
   const brightnessOverlay = {
     style: { opacity: "0" },
     addEventListener() {},
@@ -111,6 +131,12 @@ function receiver({
       getElementById: (id) => {
         if (id === "cast-loading-screen") return cover;
         if (id === "cast-brightness-overlay") return brightnessOverlay;
+        if (id === "cast-ambient-screen") return ambientScreen;
+        if (id === "cast-ambient-time") return ambientTime;
+        if (id === "cast-ambient-date") return ambientDate;
+        if (id === "cast-ambient-outside") return ambientOutside;
+        if (id === "cast-ambient-meal") return ambientMeal;
+        if (id === "cast-ambient-loading") return ambientLoading;
         return canvas;
       },
       addEventListener() {},
@@ -138,6 +164,12 @@ function receiver({
   return {
     api: window.blueHouseCastLoadingScreen,
     cover,
+    ambientScreen,
+    ambientTime,
+    ambientDate,
+    ambientOutside,
+    ambientMeal,
+    ambientLoading,
     brightnessOverlay,
     draws,
     frames,
@@ -148,6 +180,31 @@ function receiver({
     },
   };
 }
+
+test("switches to Ambient and shows a temporary loading cue", () => {
+  const { api, ambientScreen, ambientOutside, ambientMeal, ambientLoading } =
+    receiver();
+  assert.equal(ambientScreen.hidden, true);
+  assert.equal(api.setDesktop("ambient", 1), true);
+  assert.equal(api.getDesktop(), "ambient");
+  assert.equal(ambientScreen.hidden, false);
+  api.setAmbientData(
+    {
+      outside: "6°C · Rainy",
+      meal: "Dinner · Tacos",
+      outsideLabel: "Outside: 6°C · Rainy",
+      mealLabel: "Next meal: Dinner · Tacos",
+    },
+    "America/Los_Angeles"
+  );
+  assert.equal(ambientOutside.textContent, "6°C · Rainy");
+  assert.equal(ambientOutside.attributes["aria-label"], "Outside: 6°C · Rainy");
+  assert.equal(ambientMeal.textContent, "Dinner · Tacos");
+  api.setPhase("mounting");
+  assert.equal(ambientLoading.hidden, false);
+  api.setPhase("unloaded");
+  assert.equal(ambientLoading.hidden, true);
+});
 
 test("draws three initial particles synchronously instead of paying for the whole field", () => {
   const { draws, api } = receiver();

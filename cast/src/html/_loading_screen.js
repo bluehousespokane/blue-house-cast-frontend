@@ -51,16 +51,6 @@ const PARTICLE_EDGE_PADDING = 24;
     return;
   }
 
-  const updateDesktopAccessibility = () => {
-    const ambient = desktop === "ambient";
-    loader.setAttribute("role", ambient ? "region" : "status");
-    loader.setAttribute(
-      "aria-label",
-      ambient ? "The Blue House ambient screen" : "Loading Home Assistant"
-    );
-  };
-  updateDesktopAccessibility();
-
   const listeners = new Set();
   let revealTimer = 0;
   let transitionGeneration = 0;
@@ -98,7 +88,7 @@ const PARTICLE_EDGE_PADDING = 24;
       ).formatToParts(now);
       const hour = parts.find((part) => part.type === "hour")?.value;
       const minute = parts.find((part) => part.type === "minute")?.value;
-      ambientTime.textContent = hour && minute ? `${hour}:${minute}` : "--:--";
+      ambientTime.textContent = hour && minute ? hour + ":" + minute : "--:--";
       ambientDate.textContent = new Intl.DateTimeFormat("en-US", dateOptions)
         .format(now)
         .toUpperCase();
@@ -111,7 +101,7 @@ const PARTICLE_EDGE_PADDING = 24;
       ).formatToParts(now);
       const hour = parts.find((part) => part.type === "hour")?.value;
       const minute = parts.find((part) => part.type === "minute")?.value;
-      ambientTime.textContent = hour && minute ? `${hour}:${minute}` : "--:--";
+      ambientTime.textContent = hour && minute ? hour + ":" + minute : "--:--";
       ambientDate.textContent = new Intl.DateTimeFormat("en-US", dateOptions)
         .format(now)
         .toUpperCase();
@@ -355,7 +345,6 @@ const PARTICLE_EDGE_PADDING = 24;
       }
       desktop = nextDesktop;
       settingsVersion = nextSettingsVersion;
-      updateDesktopAccessibility();
       if (canvas) canvas.hidden = desktop !== "particles";
       if (ambientScreen) ambientScreen.hidden = desktop !== "ambient";
       scheduleAmbientClock();
