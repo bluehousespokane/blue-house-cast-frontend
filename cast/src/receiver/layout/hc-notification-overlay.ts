@@ -855,7 +855,9 @@ export class HcNotificationOverlay extends LitElement {
     const energy =
       (phase === "corner" ? profile.cornerEnergy : profile.centerEnergy) *
       remaining;
-    const spawnRate = (12 + energy * 170) * energy;
+    const spawnEnergy =
+      phase === "corner" ? profile.cornerEnergy * Math.sqrt(remaining) : energy;
+    const spawnRate = (12 + spawnEnergy * 170) * spawnEnergy;
     this._spawnAccumulator = Math.min(
       5,
       this._spawnAccumulator + spawnRate * dt
