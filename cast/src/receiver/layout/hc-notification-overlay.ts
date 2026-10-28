@@ -127,32 +127,21 @@ export class HcNotificationOverlay extends LitElement {
       transition: opacity 480ms ease-in-out;
     }
 
-    hc-notification-overlay .scrim.center {
-      backdrop-filter: blur(11px) saturate(0.7);
-    }
-
     hc-notification-overlay .frame {
       position: absolute;
       z-index: 2;
       opacity: 0;
-      filter: blur(7px);
       transition:
         transform 800ms cubic-bezier(0.22, 1, 0.3, 1),
-        opacity 800ms cubic-bezier(0.22, 1, 0.3, 1),
-        filter 800ms cubic-bezier(0.22, 1, 0.3, 1);
+        opacity 800ms cubic-bezier(0.22, 1, 0.3, 1);
     }
 
     hc-notification-overlay[active]:not([moving]) .scrim.center {
       opacity: 1;
     }
 
-    hc-notification-overlay[moving] .scrim.center {
-      backdrop-filter: none;
-    }
-
     hc-notification-overlay[active] .frame.center {
       opacity: 1;
-      filter: blur(0);
     }
 
     hc-notification-overlay[preparing] .frame,
@@ -163,7 +152,6 @@ export class HcNotificationOverlay extends LitElement {
 
     hc-notification-overlay[active] .frame.center:not(.entered) {
       opacity: 0;
-      filter: blur(7px);
       transform: translate(-50%, -50%) scale(0.86);
     }
 
@@ -180,7 +168,6 @@ export class HcNotificationOverlay extends LitElement {
     hc-notification-overlay .frame.corner {
       top: calc(100% - 34px);
       left: calc(100% - 34px);
-      filter: blur(0);
       transform: translate(-100%, -100%);
       transition: opacity 200ms ease-in-out 600ms;
     }
@@ -204,7 +191,6 @@ export class HcNotificationOverlay extends LitElement {
     hc-notification-overlay[exiting] .frame.center,
     hc-notification-overlay[exiting] .frame.corner {
       opacity: 0;
-      filter: blur(0);
       transition: opacity 480ms ease-in-out;
     }
 
