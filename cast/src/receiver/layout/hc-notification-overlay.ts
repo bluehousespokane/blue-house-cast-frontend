@@ -92,7 +92,8 @@ export class HcNotificationOverlay extends LitElement {
       font-family: "Nunito", "Avenir Next", "Segoe UI", system-ui, sans-serif;
     }
 
-    hc-notification-overlay[active] {
+    hc-notification-overlay[active],
+    hc-notification-overlay[exiting] {
       visibility: visible;
     }
 
@@ -101,8 +102,11 @@ export class HcNotificationOverlay extends LitElement {
       inset: 0;
       opacity: 0;
       background: rgba(2, 6, 15, 0.8);
-      backdrop-filter: blur(11px) saturate(0.7);
       transition: opacity 480ms ease-in-out;
+    }
+
+    hc-notification-overlay .scrim.center {
+      backdrop-filter: blur(11px) saturate(0.7);
     }
 
     hc-notification-overlay .frame {
@@ -119,13 +123,25 @@ export class HcNotificationOverlay extends LitElement {
         filter 800ms cubic-bezier(0.22, 1, 0.3, 1);
     }
 
-    hc-notification-overlay[active] .scrim {
+    hc-notification-overlay[active] .scrim.center {
       opacity: 1;
     }
 
     hc-notification-overlay[active] .frame {
       opacity: 1;
       filter: blur(0);
+    }
+
+    hc-notification-overlay[exiting] .frame {
+      opacity: 0;
+      filter: blur(0);
+      transition: opacity 480ms ease-in-out;
+    }
+
+    hc-notification-overlay[preparing] .frame,
+    hc-notification-overlay[preparing] .card,
+    hc-notification-overlay[preparing] .message {
+      transition: none !important;
     }
 
     hc-notification-overlay[active] .frame.center:not(.entered) {
@@ -290,18 +306,32 @@ export class HcNotificationOverlay extends LitElement {
     }
     this._runId += 1;
     if (!notification || !phase || !profile) {
-      this._notification = undefined;
-      this._phase = undefined;
-      this._profile = undefined;
-      this._entered = false;
       const runId = this._runId;
       this._edgeSparks = [];
       this._burstSparks = [];
-      this._dismissTimer = window.setTimeout(() => {
-        if (runId === this._runId) this.removeAttribute("active");
+      this.removeAttribute("preparing");
+      const finish = () => {
+        if (runId !== this._runId) return;
+        this.removeAttribute("exiting");
+        this._notification = undefined;
+        this._phase = undefined;
+        this._profile = undefined;
+        this._entered = false;
         this._dismissTimer = undefined;
-      }, 480);
+      };
+      if (this.hasAttribute("active")) {
+        this.setAttribute("exiting", "");
+        this.removeAttribute("active");
+        this._dismissTimer = window.setTimeout(finish, 480);
+      } else {
+        finish();
+      }
       return;
+    }
+    if (phase === "center") {
+      this.setAttribute("preparing", "");
+      this.removeAttribute("active");
+      this.removeAttribute("exiting");
     }
     const runId = this._runId;
     void this._prepareAndShow(notification, phase, profile, runId);
@@ -331,6 +361,13 @@ export class HcNotificationOverlay extends LitElement {
     await this.updateComplete;
     if (runId !== this._runId) return;
 
+    if (phase === "center") {
+      // Apply the final layout while transitions are disabled and the overlay
+      // is hidden, before starting the supplied center-entry animation.
+      void this._card?.offsetWidth;
+      this.removeAttribute("preparing");
+    }
+    this.removeAttribute("exiting");
     this.setAttribute("active", "");
     await this.updateComplete;
     if (runId !== this._runId) return;
@@ -386,7 +423,7 @@ export class HcNotificationOverlay extends LitElement {
     });
     const titleStyle = styleMap({ textAlign: this._textAlign });
     return html`
-      <div class="scrim" aria-hidden="true"></div>
+      <div class="scrim ${corner ? "" : "center"}" aria-hidden="true"></div>
       <section
         class="frame ${corner ? "corner" : "center"} ${this._entered ? "entered" : ""}"
         style=${styleMap({ width: this._cardSize ? `${this._cardSize}px` : undefined })}
@@ -583,18 +620,19 @@ export class HcNotificationOverlay extends LitElement {
     if (!canvas || !context) return;
     const card = this._card;
     if (!card) return;
-    const bounds = card.getBoundingClientRect();
+    const cardWidth = card.offsetWidth;
+    const cardHeight = card.offsetHeight;
     const dpr = Math.min(1.5, window.devicePixelRatio || 1);
-    const width = Math.round((bounds.width + 250) * dpr);
-    const height = Math.round((bounds.height + 250) * dpr);
+    const width = Math.round((cardWidth + 250) * dpr);
+    const height = Math.round((cardHeight + 250) * dpr);
     if (!width || !height) return;
     if (canvas.width !== width || canvas.height !== height) {
       canvas.width = width;
       canvas.height = height;
     }
     context.setTransform(dpr, 0, 0, dpr, 0, 0);
-    this._cardWidth = bounds.width;
-    this._cardHeight = bounds.height;
+    this._cardWidth = cardWidth;
+    this._cardHeight = cardHeight;
   }
 
   private _seedBurst(energy: number): void {
@@ -665,7 +703,7 @@ export class HcNotificationOverlay extends LitElement {
     );
     this._lastTick = timestamp;
     this._lastPaint = timestamp;
-    this._resizeCanvas();
+    if (!this._resizeObserver) this._resizeCanvas();
     const width = this._cardWidth;
     const height = this._cardHeight;
     if (!width || !height) {
