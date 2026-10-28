@@ -36,7 +36,9 @@ opacity. While mounting, the same particles fade to a 20/60/20 palette over
 pixels of edge padding. They return to the desktop state over 800 ms as the view
 reveals or if loading fails. White particles move 40% faster than the original
 baseline, and blue and orange move 12% faster; the loading state adds another
-20%, with speeds blending as colors change. Motion retains edge bounce, independent blue opacity animation, light and
+50% speed multiplier at full loading mix, making it 25% faster than the
+previous loading state, with speeds blending as colors change. Motion retains
+edge bounce, independent blue opacity animation, light and
 orange size animation, light attraction, and blue pointer grab. Drawing pauses
 after the cover is hidden; reduced motion uses a static field.
 

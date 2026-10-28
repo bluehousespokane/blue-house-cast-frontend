@@ -184,7 +184,7 @@ function createCastParticleRenderer(
           const loadingSpeed = particle.loadingColor === "#E8EEF4" ? 1.4 : 1.12;
           const speed =
             (normalSpeed + (loadingSpeed - normalSpeed) * loadingMix) *
-            (1 + loadingMix * 0.2);
+            (1 + loadingMix * 0.5);
           particle.x += particle.vx * 0.25 * frameScale * speed;
           particle.y += particle.vy * 0.25 * frameScale * speed;
           if (particle.settings.animateSize) {
