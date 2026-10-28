@@ -220,6 +220,10 @@ test("switches to Ambient and shows a temporary loading cue", () => {
   );
   api.setPhase("mounting");
   assert.equal(ambientLoading.hidden, false);
+  api.setPhase("mounted");
+  assert.equal(ambientLoading.hidden, true);
+  api.setPhase("mounting");
+  assert.equal(ambientLoading.hidden, false);
   api.setPhase("unloaded");
   assert.equal(ambientLoading.hidden, true);
 });

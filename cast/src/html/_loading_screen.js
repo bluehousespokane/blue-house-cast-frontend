@@ -392,11 +392,7 @@ const PARTICLE_EDGE_PADDING = 24;
     getBrightness: () => brightnessPct,
     setPhase(nextPhase) {
       particlePhase = nextPhase;
-      if (ambientLoading && nextPhase === "mounting") {
-        ambientLoading.hidden = false;
-      } else if (ambientLoading && nextPhase === "unloaded") {
-        ambientLoading.hidden = true;
-      }
+      if (ambientLoading) ambientLoading.hidden = nextPhase !== "mounting";
       sendParticles("setPhase", nextPhase);
     },
     subscribe(listener) {

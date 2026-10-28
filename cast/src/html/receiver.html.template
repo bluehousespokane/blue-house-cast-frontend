@@ -124,9 +124,11 @@
         right: clamp(25px, 7vw, 130px);
         bottom: clamp(44px, 8vh, 100px);
         left: clamp(35px, 9vw, 160px);
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: clamp(28px, 4vw, 72px);
+        display: flex;
+        flex-wrap: wrap;
+        column-gap: clamp(20px, 3vw, 48px);
+        row-gap: 24px;
+        align-items: flex-start;
       }
 
       .cast-ambient-detail {
@@ -191,7 +193,8 @@
           right: 7vw;
           bottom: 6vh;
           left: 7vw;
-          gap: 22px;
+          column-gap: 22px;
+          row-gap: 20px;
         }
 
         .cast-ambient-detail {
