@@ -6,6 +6,7 @@ const PARTICLE_EDGE_PADDING = 24;
   const ambientTime = document.getElementById("cast-ambient-time");
   const ambientDate = document.getElementById("cast-ambient-date");
   const ambientOutside = document.getElementById("cast-ambient-outside");
+  const ambientMealLabel = document.getElementById("cast-ambient-meal-label");
   const ambientMeal = document.getElementById("cast-ambient-meal");
   const ambientLoading = document.getElementById("cast-ambient-loading");
   const brightnessOverlay = document.getElementById("cast-brightness-overlay");
@@ -368,6 +369,9 @@ const PARTICLE_EDGE_PADDING = 24;
         ambientMeal.textContent = data.meal;
         ambientMeal.setAttribute("aria-label", data.mealLabel);
         ambientMeal.title = data.meal;
+      }
+      if (ambientMealLabel) {
+        ambientMealLabel.textContent = data.mealHeading;
       }
       scheduleAmbientClock();
     },

@@ -14,6 +14,7 @@ export interface AmbientDisplayData {
   outside: string;
   meal: string;
   outsideLabel: string;
+  mealHeading: string;
   mealLabel: string;
 }
 
@@ -103,9 +104,19 @@ function weatherDisplay(
   const unit = weather.attributes.temperature_unit;
   const pieces: string[] = [];
   if (typeof temperature === "number" && Number.isFinite(temperature)) {
-    pieces.push(
-      `${Math.round(temperature)}${typeof unit === "string" ? unit : "°"}`
-    );
+    if (unit === "°C" || unit === "C") {
+      pieces.push(
+        `${Math.round((temperature * 9) / 5 + 32)}°F / ${Math.round(temperature)}°C`
+      );
+    } else if (unit === "°F" || unit === "F") {
+      pieces.push(
+        `${Math.round(temperature)}°F / ${Math.round(((temperature - 32) * 5) / 9)}°C`
+      );
+    } else {
+      pieces.push(
+        `${Math.round(temperature)}${typeof unit === "string" ? unit : "°"}`
+      );
+    }
   }
   const condition = weatherConditions[weather.state] ?? weather.state;
   if (condition) {
@@ -186,38 +197,25 @@ function compareMeals(left: MealEntry, right: MealEntry): number {
   );
 }
 
-function calendarDayDifference(from: string, to: string): number {
-  const parse = (value: string) => {
-    const [year, month, day] = value.split("-").map(Number);
-    return Date.UTC(year, month - 1, day);
-  };
-  return (parse(to) - parse(from)) / (24 * 60 * 60 * 1000);
-}
-
-function dayLabel(daysAhead: number, date: string): string {
-  if (daysAhead === 1) return "Tomorrow";
-  if (daysAhead < 1) return "Today";
-  const [year, month, day] = date.split("-").map(Number);
-  return new Intl.DateTimeFormat("en-US", {
-    weekday: "short",
-    timeZone: "UTC",
-  }).format(new Date(Date.UTC(year, month - 1, day, 12)));
-}
-
 function mealDisplay(
   meals: HassEntity | undefined,
   now: Date,
   timeZone: string | undefined,
   connected: boolean
-): string {
+): { heading: string; value: string; accessibleLabel: string } {
   if (!meals || ["unknown", "unavailable"].includes(meals.state)) {
-    return connected
-      ? "Meal plan unavailable"
-      : "Meal plan unavailable · Offline";
+    const heading = `Next meal${connected ? "" : " · Offline"}`;
+    const value = "Meal plan unavailable";
+    return { heading, value, accessibleLabel: `${heading}: ${value}` };
   }
 
   const entries = readMealEntries(meals);
   const today = dateKey(now, timeZone);
+  const tomorrow = new Date(
+    Date.parse(`${today}T00:00:00Z`) + 24 * 60 * 60 * 1000
+  )
+    .toISOString()
+    .slice(0, 10);
   const parts = dateParts(now, timeZone);
   const minute = Number(parts.hour) * 60 + Number(parts.minute);
   const todayMeals = entries
@@ -227,52 +225,31 @@ function mealDisplay(
         minute < (MEAL_CUTOFF_MINUTES[entry.type] ?? MEAL_CUTOFF_MINUTES.other)
     )
     .sort(compareMeals);
-
-  let meal = todayMeals[0];
-  if (!meal) {
-    const upcoming = entries.filter((entry) => entry.date > today);
-    const nextDate = upcoming.map((entry) => entry.date).sort()[0];
-    meal = upcoming
-      .filter((entry) => entry.date === nextDate)
-      .sort(compareMeals)[0];
-    if (meal && nextDate) {
-      const daysAhead = calendarDayDifference(today, nextDate);
-      const type = meal.type === "other" ? "Meal" : meal.type;
-      const day = dayLabel(daysAhead, nextDate);
-      const freshness = freshnessSuffix(
-        meals.attributes.last_refresh,
-        MEAL_STALE_AFTER_MS,
-        now
-      );
-      return withConnectionState(
-        `${day} · ${type.charAt(0).toUpperCase() + type.slice(1)} · ${meal.title}${freshness}`,
-        connected
-      );
-    }
-  }
+  const tomorrowMeals = entries
+    .filter((entry) => entry.date === tomorrow)
+    .sort(compareMeals);
+  const meal = todayMeals[0] ?? tomorrowMeals[0];
+  const freshness = freshnessSuffix(
+    meals.attributes.last_refresh,
+    MEAL_STALE_AFTER_MS,
+    now
+  );
+  const offline = connected ? "" : " · Offline";
 
   if (!meal) {
-    const empty = entries.length ? "No more meals planned" : "No meal planned";
-    return withConnectionState(
-      empty +
-        freshnessSuffix(
-          meals.attributes.last_refresh,
-          MEAL_STALE_AFTER_MS,
-          now
-        ),
-      connected
-    );
+    const heading = `Next meal${freshness}${offline}`;
+    const value = "Nothing planned through tomorrow";
+    return { heading, value, accessibleLabel: `${heading}: ${value}` };
   }
 
   const type = meal.type === "other" ? "Meal" : meal.type;
-  return withConnectionState(
-    `${type.charAt(0).toUpperCase() + type.slice(1)} · ${meal.title}${freshnessSuffix(
-      meals.attributes.last_refresh,
-      MEAL_STALE_AFTER_MS,
-      now
-    )}`,
-    connected
-  );
+  const mealType = type.charAt(0).toUpperCase() + type.slice(1);
+  const heading = `${meal.date === tomorrow ? `Tomorrow's ${mealType}` : mealType}${freshness}${offline}`;
+  return {
+    heading,
+    value: meal.title,
+    accessibleLabel: `${heading}: ${meal.title}`,
+  };
 }
 
 export function getAmbientDisplayData(
@@ -286,8 +263,9 @@ export function getAmbientDisplayData(
   const meal = mealDisplay(meals, now, timeZone, connected);
   return {
     outside,
-    meal,
+    meal: meal.value,
     outsideLabel: `Outside: ${outside}`,
-    mealLabel: `Next meal: ${meal}`,
+    mealHeading: meal.heading,
+    mealLabel: meal.accessibleLabel,
   };
 }

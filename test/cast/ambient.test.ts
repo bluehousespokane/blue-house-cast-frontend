@@ -21,11 +21,18 @@ function mealEntity(
   };
 }
 
-function weatherEntity(lastUpdated = now.toISOString()): HassEntity {
+function weatherEntity(
+  lastUpdated = now.toISOString(),
+  temperature = 5.7,
+  temperatureUnit = "°C"
+): HassEntity {
   return {
     entity_id: "weather.forecast_home",
     state: "rainy",
-    attributes: { temperature: 5.7, temperature_unit: "°C" },
+    attributes: {
+      temperature,
+      temperature_unit: temperatureUnit,
+    },
     last_changed: lastUpdated,
     last_updated: lastUpdated,
     context: { id: "test", user_id: null, parent_id: null },
@@ -56,22 +63,24 @@ describe("Ambient receiver data", () => {
       true
     );
 
-    assert.equal(result.outside, "6°C · Rainy");
-    assert.equal(result.meal, "Lunch · Tomato soup");
-    assert.equal(result.outsideLabel, "Outside: 6°C · Rainy");
+    assert.equal(result.outside, "42°F / 6°C · Rainy");
+    assert.equal(result.meal, "Tomato soup");
+    assert.equal(result.mealHeading, "Lunch");
+    assert.equal(result.mealLabel, "Lunch: Tomato soup");
+    assert.equal(result.outsideLabel, "Outside: 42°F / 6°C · Rainy");
   });
 
-  it("selects the first planned meal on the next available day after dinner cutoff", () => {
+  it("labels a tomorrow meal and shows its name without the meal type", () => {
     const late = new Date("2026-10-29T02:30:00Z");
     const meals = mealEntity(
       [
         { mealplan_date: "2026-10-28", entry_type: "dinner", title: "Tacos" },
-        { mealplan_date: "2026-10-30", entry_type: "dinner", title: "Pasta" },
         {
-          mealplan_date: "2026-10-30",
+          mealplan_date: "2026-10-29",
           entry_type: "breakfast",
           title: "Toast",
         },
+        { mealplan_date: "2026-10-30", entry_type: "dinner", title: "Pasta" },
       ],
       late.toISOString()
     );
@@ -84,8 +93,38 @@ describe("Ambient receiver data", () => {
       true
     );
 
-    assert.equal(result.meal, "Fri · Breakfast · Toast");
+    assert.equal(result.meal, "Toast");
+    assert.equal(result.mealHeading, "Tomorrow's Breakfast");
+    assert.equal(result.mealLabel, "Tomorrow's Breakfast: Toast");
     assert.equal(result.outside, "Weather unavailable");
+  });
+
+  it("does not show meals scheduled later than tomorrow", () => {
+    const meals = mealEntity([
+      { mealplan_date: "2026-10-30", entry_type: "dinner", title: "Pasta" },
+    ]);
+    const result = getAmbientDisplayData(
+      weatherEntity(),
+      meals,
+      now,
+      "America/Los_Angeles",
+      true
+    );
+
+    assert.equal(result.mealHeading, "Next meal");
+    assert.equal(result.meal, "Nothing planned through tomorrow");
+  });
+
+  it("converts Fahrenheit weather to include both temperature units", () => {
+    const result = getAmbientDisplayData(
+      weatherEntity(now.toISOString(), 42, "°F"),
+      undefined,
+      now,
+      "America/Los_Angeles",
+      true
+    );
+
+    assert.equal(result.outside, "42°F / 6°C · Rainy");
   });
 
   it("marks stale and offline sources without hiding their known values", () => {
@@ -101,7 +140,8 @@ describe("Ambient receiver data", () => {
       false
     );
 
-    assert.equal(result.outside, "6°C · Rainy · Stale · Offline");
-    assert.equal(result.meal, "Lunch · Soup · Stale · Offline");
+    assert.equal(result.outside, "42°F / 6°C · Rainy · Stale · Offline");
+    assert.equal(result.meal, "Soup");
+    assert.equal(result.mealHeading, "Lunch · Stale · Offline");
   });
 });

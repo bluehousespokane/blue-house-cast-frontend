@@ -56,6 +56,7 @@ function receiver({
       this.attributes[name] = value;
     },
   };
+  const ambientMealLabel = { textContent: "" };
   const ambientMeal = {
     textContent: "",
     title: "",
@@ -135,6 +136,7 @@ function receiver({
         if (id === "cast-ambient-time") return ambientTime;
         if (id === "cast-ambient-date") return ambientDate;
         if (id === "cast-ambient-outside") return ambientOutside;
+        if (id === "cast-ambient-meal-label") return ambientMealLabel;
         if (id === "cast-ambient-meal") return ambientMeal;
         if (id === "cast-ambient-loading") return ambientLoading;
         return canvas;
@@ -168,6 +170,7 @@ function receiver({
     ambientTime,
     ambientDate,
     ambientOutside,
+    ambientMealLabel,
     ambientMeal,
     ambientLoading,
     brightnessOverlay,
@@ -182,24 +185,39 @@ function receiver({
 }
 
 test("switches to Ambient and shows a temporary loading cue", () => {
-  const { api, ambientScreen, ambientOutside, ambientMeal, ambientLoading } =
-    receiver();
+  const {
+    api,
+    ambientScreen,
+    ambientOutside,
+    ambientMealLabel,
+    ambientMeal,
+    ambientLoading,
+  } = receiver();
   assert.equal(ambientScreen.hidden, true);
   assert.equal(api.setDesktop("ambient", 1), true);
   assert.equal(api.getDesktop(), "ambient");
   assert.equal(ambientScreen.hidden, false);
   api.setAmbientData(
     {
-      outside: "6°C · Rainy",
-      meal: "Dinner · Tacos",
-      outsideLabel: "Outside: 6°C · Rainy",
-      mealLabel: "Next meal: Dinner · Tacos",
+      outside: "42°F / 6°C · Rainy",
+      meal: "Tacos",
+      outsideLabel: "Outside: 42°F / 6°C · Rainy",
+      mealHeading: "Tomorrow's Dinner",
+      mealLabel: "Tomorrow's Dinner: Tacos",
     },
     "America/Los_Angeles"
   );
-  assert.equal(ambientOutside.textContent, "6°C · Rainy");
-  assert.equal(ambientOutside.attributes["aria-label"], "Outside: 6°C · Rainy");
-  assert.equal(ambientMeal.textContent, "Dinner · Tacos");
+  assert.equal(ambientOutside.textContent, "42°F / 6°C · Rainy");
+  assert.equal(
+    ambientOutside.attributes["aria-label"],
+    "Outside: 42°F / 6°C · Rainy"
+  );
+  assert.equal(ambientMealLabel.textContent, "Tomorrow's Dinner");
+  assert.equal(ambientMeal.textContent, "Tacos");
+  assert.equal(
+    ambientMeal.attributes["aria-label"],
+    "Tomorrow's Dinner: Tacos"
+  );
   api.setPhase("mounting");
   assert.equal(ambientLoading.hidden, false);
   api.setPhase("unloaded");

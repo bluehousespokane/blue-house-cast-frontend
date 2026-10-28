@@ -46,7 +46,8 @@
         z-index: 1;
         overflow: hidden;
         color: #f4f8ff;
-        font-family: "Avenir Next", "Segoe UI", system-ui, sans-serif;
+        font-family: "Nunito", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+        font-synthesis: none;
         pointer-events: none;
         background:
           radial-gradient(
@@ -99,7 +100,8 @@
       }
 
       .cast-ambient-time {
-        overflow: hidden;
+        overflow: visible;
+        padding-inline-end: 0.02em;
         font-size: clamp(115px, 19vw, 330px);
         font-weight: 250;
         font-variant-numeric: tabular-nums;
@@ -140,6 +142,7 @@
         font-size: clamp(11px, 0.8vw, 14px);
         font-weight: 800;
         letter-spacing: 0.18em;
+        text-transform: uppercase;
       }
 
       .cast-ambient-value {
@@ -238,6 +241,30 @@
         z-index: 2147483647;
         pointer-events: none;
         background:
+          radial-gradient(
+            circle at top left,
+            #000,
+            transparent
+              calc(var(--vignette-size, 0px) + var(--vignette-size, 0px))
+          ),
+          radial-gradient(
+            circle at top right,
+            #000,
+            transparent
+              calc(var(--vignette-size, 0px) + var(--vignette-size, 0px))
+          ),
+          radial-gradient(
+            circle at bottom left,
+            #000,
+            transparent
+              calc(var(--vignette-size, 0px) + var(--vignette-size, 0px))
+          ),
+          radial-gradient(
+            circle at bottom right,
+            #000,
+            transparent
+              calc(var(--vignette-size, 0px) + var(--vignette-size, 0px))
+          ),
           linear-gradient(
             to right,
             #000,
@@ -281,7 +308,9 @@
             >
           </div>
           <div class="cast-ambient-detail">
-            <span class="cast-ambient-label">Next meal</span>
+            <span class="cast-ambient-label" id="cast-ambient-meal-label"
+              >Next meal</span
+            >
             <span class="cast-ambient-value" id="cast-ambient-meal"
               >Waiting for meal plan…</span
             >
