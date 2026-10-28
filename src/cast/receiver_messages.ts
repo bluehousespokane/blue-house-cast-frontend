@@ -12,6 +12,19 @@ export interface GetStatusMessage extends BaseCastMessage {
   hassUUID?: string;
 }
 
+export type NotificationLevel =
+  "routine" | "notice" | "important" | "emergency";
+
+export interface ShowNotificationMessage extends BaseCastMessage {
+  type: "show_notification";
+  protocolVersion?: number;
+  sessionId?: string;
+  requestId?: string;
+  title?: string;
+  message: string;
+  level: NotificationLevel;
+}
+
 export interface ConnectMessage extends BaseCastMessage {
   type: "connect";
   protocolVersion?: number;
@@ -89,6 +102,7 @@ export type HassMessage =
   | GetStatusMessage
   | ConnectMessage
   | ShowLovelaceViewMessage
+  | ShowNotificationMessage
   | SetBrightnessMessage
   | ApplySettingsMessage
   | ReceiverControlMessage

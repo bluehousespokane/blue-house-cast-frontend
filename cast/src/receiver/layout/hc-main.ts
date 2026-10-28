@@ -12,6 +12,7 @@ import type {
   HassMessage,
   HideLoadingScreenMessage,
   SetBrightnessMessage,
+  ShowNotificationMessage,
   ShowDemoMessage,
   ShowLovelaceViewMessage,
   ShowLoadingScreenMessage,
@@ -51,6 +52,9 @@ import { isRequestedLovelaceViewReady } from "../view_ready";
 import type { CastViewChanged } from "./hc-lovelace";
 import { getAmbientDisplayData } from "../ambient";
 import type { AmbientDisplayData } from "../ambient";
+import type { NotificationStatus } from "../notifications";
+import { ReceiverNotificationQueue } from "../notifications";
+import "./hc-notification-overlay";
 
 const DEFAULT_CONFIG: LovelaceDashboardStrategyConfig = {
   strategy: {
@@ -97,6 +101,10 @@ export class HcMain extends HassElement {
   @state() private _desktop: "particles" | "black" | "ambient" = "particles";
 
   private _brightnessPct = 100;
+
+  private _notificationQueue?: ReceiverNotificationQueue;
+
+  private _notificationOverlay?: HTMLElementTagNameMap["hc-notification-overlay"];
 
   static styles = css`
     .error-frame {
@@ -200,6 +208,7 @@ export class HcMain extends HassElement {
   private readonly _sessionId = crypto.randomUUID();
 
   private _handleVisibilityChange = () => {
+    this._notificationQueue?.setVisible(document.visibilityState === "visible");
     if (document.visibilityState === "hidden") {
       window.clearTimeout(this._errorNoticeTimer);
       this._errorNoticeTimer = undefined;
@@ -255,6 +264,10 @@ export class HcMain extends HassElement {
     this._statusConnection = undefined;
     window.clearTimeout(this._mountTimer);
     window.clearTimeout(this._errorNoticeTimer);
+    this._notificationQueue?.clear("interrupted");
+    this._notificationOverlay?.remove();
+    this._notificationQueue = undefined;
+    this._notificationOverlay = undefined;
     super.disconnectedCallback();
   }
 
@@ -279,6 +292,8 @@ export class HcMain extends HassElement {
       this._handleConnectMessage(msg);
     } else if (msg.type === "show_lovelace_view") {
       this._handleShowLovelaceMessage(msg);
+    } else if (msg.type === "show_notification") {
+      this._handleShowNotification(msg);
     } else if (msg.type === "get_status") {
       this._handleGetStatusMessage(msg);
     } else if (msg.type === "show_demo") {
@@ -422,6 +437,7 @@ export class HcMain extends HassElement {
       type: "receiver_status",
       protocolVersion: 1,
       sessionId: this._sessionId,
+      capabilities: ["notifications_v1"],
       connected: !!this.hass?.connected,
       showDemo: this._showDemo,
       visible: document.visibilityState === "visible",
@@ -1179,6 +1195,76 @@ export class HcMain extends HassElement {
       startedAt: this._commandStartedAt,
       updatedAt: this._commandUpdatedAt,
     });
+  }
+
+  private _handleShowNotification(msg: ShowNotificationMessage): void {
+    const levels = ["routine", "notice", "important", "emergency"];
+    const title = msg.title ?? "";
+    const error =
+      typeof msg.message !== "string" ||
+      !msg.message.trim() ||
+      Array.from(msg.message).length > 2000 ||
+      typeof title !== "string" ||
+      Array.from(title).length > 120 ||
+      !levels.includes(msg.level)
+        ? "Invalid notification content or level."
+        : !this.hass?.connected
+          ? "The receiver is not connected to Home Assistant."
+          : document.visibilityState !== "visible"
+            ? "The receiver is not in the foreground."
+            : undefined;
+    if (error) {
+      this._sendRequestAck(msg, "show_notification", "rejected", error);
+      return;
+    }
+    if (!msg.requestId || !msg.senderId) {
+      this._sendRequestAck(
+        msg,
+        "show_notification",
+        "rejected",
+        "Request identity is missing."
+      );
+      return;
+    }
+    const failure = this._getNotificationQueue().enqueue({
+      requestId: msg.requestId,
+      senderId: msg.senderId,
+      title: title.trim(),
+      message: msg.message.trim(),
+      level: msg.level,
+    });
+    if (failure) {
+      this._sendRequestAck(msg, "show_notification", "rejected", failure);
+      return;
+    }
+    this._sendRequestAck(msg, "show_notification", "accepted");
+  }
+
+  private _getNotificationQueue(): ReceiverNotificationQueue {
+    if (!this._notificationOverlay) {
+      this._notificationOverlay = document.createElement(
+        "hc-notification-overlay"
+      );
+      document.body.append(this._notificationOverlay);
+    }
+    if (!this._notificationQueue) {
+      this._notificationQueue = new ReceiverNotificationQueue(
+        (notification, phase, profile) =>
+          this._notificationOverlay?.show(notification, phase, profile),
+        (notification, status: NotificationStatus) => {
+          this._sendMessage(notification.senderId, {
+            type: "notification_status",
+            protocolVersion: 1,
+            sessionId: this._sessionId,
+            ...status,
+          });
+        }
+      );
+      this._notificationQueue.setVisible(
+        document.visibilityState === "visible"
+      );
+    }
+    return this._notificationQueue;
   }
 
   private _supersedeContentRequest() {

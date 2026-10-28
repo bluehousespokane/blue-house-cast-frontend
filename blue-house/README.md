@@ -16,8 +16,11 @@ The receiver-specific changes are limited to:
 - `cast/src/receiver/layout/hc-main.ts`, `hc-lovelace.ts`, and
   `cast/src/receiver/entrypoint.ts`: cover before swapping or unloading a view,
   keep the receiver connected, and acknowledge completed operations.
+- `cast/src/receiver/notifications.ts` and
+  `cast/src/receiver/layout/hc-notification-overlay.ts`: foreground-only,
+  volatile notification queue and bounded visual overlay.
 - `src/cast/receiver_messages.ts` and `sender_messages.ts`: additive loading
-  controls, render generation, visibility, and operation status.
+  controls, render generation, notifications, visibility, and operation status.
 
 Authentication, dashboard rendering, custom-card loading, navigation, and media
 handling continue to use upstream code. The status extensions do not establish
@@ -70,6 +73,33 @@ persists across dashboard swaps and unloads within the same Cast app session,
 and returns to 100% when the receiver is relaunched. A topmost black overlay
 dims video, dashboard content, vignette, and loading particles together.
 
+## Notifications
+
+The additive `show_notification` Cast message creates a visual-only overlay in
+the receiver document. It is accepted only while Home Assistant data is
+connected and the Cast document is foregrounded; it does not launch or
+foreground the app, replace a Lovelace view, or change receiver settings. The
+receiver advertises `notifications_v1` in status so Home Assistant can require
+a compatible live session before sending the action.
+
+The overlay always starts centered and moves to the fixed bottom-left corner.
+Level profiles own the timings and animation energy: Routine 3/9 seconds,
+Notice 3/9, Important 5/15, and Emergency 10/30 for center/corner phases,
+including each 800 ms movement. Center energy rises from Routine through
+Emergency, while corner energy stays lower. Only one notification is active;
+five more can wait in FIFO order. A queued item replaces the active item after
+its center phase, while a new arrival during the corner phase starts
+immediately. A full queue rejects new work. Losing document visibility
+interrupts active and queued notifications and clears the queue.
+
+Spark rendering is capped at 30 frames per second, 175 edge particles, and 250
+entry-burst particles, with one cached sprite per level. Drawing stops when the
+overlay is hidden; reduced motion uses a static edge field, and a missing 2D
+canvas context leaves the text overlay available. Long messages shrink to a
+readable minimum and then end with an ellipsis. Notification status messages
+carry request IDs, phase/outcome, queue count, and timestamps, never title or
+message text.
+
 ## Upstream updates
 
 The **Blue House Cast checks and upstream sync** workflow runs daily and
@@ -116,7 +146,10 @@ density, motion, circular reveal, hold and reuse, interrupted transitions,
 reduced motion, and unavailable canvas. The artifact check separately verifies
 that generated startup styles, the cover, and the bootstrap precede the Cast
 SDK. CI also runs formatting, ESLint, Cast tests, the Cast build, and full
-TypeScript checking for the exact source commit.
+TypeScript checking for the exact source commit. Notification queue tests cover
+the level profiles, FIFO promotion, queue bounds, interruption on visibility
+loss, corner-phase replacement, and rejection of inherited object property
+names as levels.
 
 The loading transition covers over five seconds with a prompt start and eased
 finish. Dashboard DOM and video initialize while

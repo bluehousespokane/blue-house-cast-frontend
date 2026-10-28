@@ -60,6 +60,21 @@ export interface ReceiverStatusMessage extends BaseCastMessage {
   hassUUID?: string;
   lovelacePath?: string | number | null;
   urlPath?: string | null;
+  capabilities?: string[];
+}
+
+export interface ReceiverNotificationStatusMessage extends BaseCastMessage {
+  type: "notification_status";
+  protocolVersion: number;
+  sessionId: string;
+  requestId: string;
+  outcome:
+    "queued" | "displayed" | "corner" | "completed" | "interrupted" | "failed";
+  queuedCount: number;
+  error?: string;
+  reason?: string;
+  startedAt: number;
+  updatedAt: number;
 }
 
 export interface ReceiverCommandAckMessage extends BaseCastMessage {
@@ -92,4 +107,5 @@ export const enum ReceiverErrorCode {
   PROTOCOL_MISMATCH = 23,
 }
 
-export type SenderMessage = ReceiverStatusMessage;
+export type SenderMessage =
+  ReceiverStatusMessage | ReceiverNotificationStatusMessage;
