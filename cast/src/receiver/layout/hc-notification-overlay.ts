@@ -339,8 +339,7 @@ export class HcNotificationOverlay extends LitElement {
     this._runId += 1;
     if (!notification || !phase || !profile) {
       const runId = this._runId;
-      this._edgeSparks = [];
-      this._burstSparks = [];
+      this._clearSparks();
       this.removeAttribute("preparing");
       const finish = () => {
         if (runId !== this._runId) return;
@@ -435,7 +434,7 @@ export class HcNotificationOverlay extends LitElement {
       this._stopAnimation();
       this._phase = "corner";
       this._profile = profile;
-      this._seedBurst(profile.cornerEnergy);
+      this._clearSparks();
       void this.updateComplete.then(() => {
         if (runId !== this._runId) return;
         this._resizeCanvas();
@@ -462,9 +461,8 @@ export class HcNotificationOverlay extends LitElement {
     this.style.setProperty("--notification-color", COLORS[notification.level]);
     this._phaseStarted = performance.now();
     this._lastTick = this._phaseStarted;
-    this._seedBurst(
-      phase === "corner" ? profile.cornerEnergy : profile.centerEnergy
-    );
+    if (phase === "center") this._seedBurst(profile.centerEnergy);
+    else this._clearSparks();
     this._fitTypography();
     await this.updateComplete;
     if (runId !== this._runId) return;
@@ -768,9 +766,14 @@ export class HcNotificationOverlay extends LitElement {
     this._cardHeight = cardHeight;
   }
 
-  private _seedBurst(energy: number): void {
+  private _clearSparks(): void {
     this._edgeSparks = [];
     this._burstSparks = [];
+    this._spawnAccumulator = 0;
+  }
+
+  private _seedBurst(energy: number): void {
+    this._clearSparks();
     if (matchMedia("(prefers-reduced-motion: reduce)").matches || energy <= 0) {
       return;
     }
