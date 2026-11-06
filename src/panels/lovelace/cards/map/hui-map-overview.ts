@@ -17,38 +17,37 @@ import { classMap } from "lit/directives/class-map";
 import { ifDefined } from "lit/directives/if-defined";
 import { styleMap } from "lit/directives/style-map";
 import memoizeOne from "memoize-one";
+import { formatTime } from "../../../../common/datetime/format_time";
 import { consume } from "../../../../common/decorators/consume";
 import { transform } from "../../../../common/decorators/transform";
-import { contrastingZoneContent } from "../../../../common/map/zone-marker";
-import {
-  HOME_ZONE_ENTITY_ID,
-  zoneColor,
-} from "../../../../common/map/entity-map-colors";
-import { computeDomain } from "../../../../common/entity/compute_domain";
-import { computeStateDomain } from "../../../../common/entity/compute_state_domain";
-import { computeStateName } from "../../../../common/entity/compute_state_name";
-import { getEntityLocation } from "../../../../common/entity/get_entity_location";
 import type {
   HASSDomCurrentTargetEvent,
   HASSDomEvent,
 } from "../../../../common/dom/fire_event";
 import { fireEvent } from "../../../../common/dom/fire_event";
+import { computeDomain } from "../../../../common/entity/compute_domain";
+import { computeStateDomain } from "../../../../common/entity/compute_state_domain";
+import {
+  findFirstActiveZone,
+  getEntityLocation,
+} from "../../../../common/entity/get_entity_location";
+import {
+  HOME_ZONE_ENTITY_ID,
+  zoneColor,
+} from "../../../../common/map/entity-map-colors";
+import { contrastingZoneContent } from "../../../../common/map/zone-marker";
+import "../../../../components/ha-button";
 import "../../../../components/ha-icon-button";
 import "../../../../components/ha-icon-button-prev";
+import "../../../../components/ha-relative-time";
 import "../../../../components/ha-snap-bottom-sheet";
 import type { HaSnapBottomSheet } from "../../../../components/ha-snap-bottom-sheet";
-import "../../../../components/ha-md-list";
-import "../../../../components/ha-md-list-item";
-import "../../../../components/ha-relative-time";
 import "../../../../components/ha-spinner";
 import "../../../../components/ha-state-icon";
 import "../../../../components/ha-svg-icon";
+import "../../../../components/item/ha-list-item-button";
+import "../../../../components/list/ha-list-base";
 import type { HaMapEntity } from "../../../../components/map/ha-map";
-import "../../../../components/ha-button";
-import { showMoreInfoDialog } from "../../../../dialogs/more-info/show-ha-more-info-dialog";
-import { formatTime } from "../../../../common/datetime/format_time";
-import type { ActivityEntry } from "./map-activity";
-import { personActivity, zoneActivity } from "./map-activity";
 import {
   apiContext,
   configContext,
@@ -62,14 +61,18 @@ import type { EntityRegistryEntry } from "../../../../data/entity/entity_registr
 import type { HistoryStates } from "../../../../data/history";
 import { fetchDateWS } from "../../../../data/history";
 import { computeUserInitials } from "../../../../data/user";
+import { computeZoneTrackerState } from "../../../../data/zone";
+import { showMoreInfoDialog } from "../../../../dialogs/more-info/show-ha-more-info-dialog";
 import type {
   CurrentUser,
-  HomeAssistantConfig,
   HomeAssistantApi,
+  HomeAssistantConfig,
   HomeAssistantConnection,
   HomeAssistantFormatters,
   HomeAssistantInternationalization,
 } from "../../../../types";
+import type { ActivityEntry } from "./map-activity";
+import { personActivity, zoneActivity } from "./map-activity";
 
 export type OverviewTab = "people" | "devices" | "zones";
 
@@ -159,7 +162,7 @@ export class HuiMapOverview extends LitElement {
 
   @query(".detail-name") private _detailName?: HTMLElement;
 
-  @queryAll("ha-md-list-item")
+  @queryAll("ha-list-item-button")
   private _listItems!: NodeListOf<HTMLElement>;
 
   private _peekObserver?: ResizeObserver;
@@ -327,7 +330,7 @@ export class HuiMapOverview extends LitElement {
   private _entityName(stateObj: HassEntity): string {
     return (
       this._configuredNames(this.entities).get(stateObj.entity_id) ??
-      computeStateName(stateObj)
+      this._formatters.formatEntityName(stateObj)
     );
   }
 
@@ -426,7 +429,8 @@ export class HuiMapOverview extends LitElement {
         { states: this._states, callWS: this._api.callWS },
         new Date(since),
         new Date(),
-        entityIds
+        entityIds,
+        { minimalResponse: false }
       );
     } catch (_err) {
       return null;
@@ -485,10 +489,7 @@ export class HuiMapOverview extends LitElement {
       this._activity = [];
       return;
     }
-    // A person's state is "home" for the home zone, the zone name otherwise
-    const zoneState =
-      entityId === "zone.home" ? "home" : computeStateName(zone);
-    this._activity = zoneActivity(history, personIds, zoneState, since);
+    this._activity = zoneActivity(history, personIds, entityId, since);
   }
 
   protected render() {
@@ -604,13 +605,11 @@ export class HuiMapOverview extends LitElement {
     if (entityState === "not_home" || entityState === "unknown") {
       return undefined;
     }
-    return entityState === "home"
-      ? this._states[HOME_ZONE_ENTITY_ID]
-      : Object.values(this._states).find(
-          (candidate) =>
-            computeStateDomain(candidate) === "zone" &&
-            computeStateName(candidate) === entityState
-        );
+    return Object.values(this._states).find(
+      (candidate) =>
+        computeStateDomain(candidate) === "zone" &&
+        computeZoneTrackerState(candidate) === entityState
+    );
   }
 
   // The same color as the zone's marker on the map
@@ -655,7 +654,10 @@ export class HuiMapOverview extends LitElement {
         ? this._personName(person)
         : entry.personId
       : this._formatters.formatEntityState(stateObj, entry.state);
-    const zone = entry.personId ? undefined : this._zoneForState(entry.state);
+    const zone = entry.personId
+      ? undefined
+      : ((entry.inZones && findFirstActiveZone(entry.inZones, this._states)) ??
+        this._zoneForState(entry.state));
     const tile = zone
       ? this._renderZoneAvatar(zone)
       : person
@@ -764,13 +766,13 @@ export class HuiMapOverview extends LitElement {
         role="tabpanel"
         aria-labelledby="tab-${tab}"
       >
-        <ha-md-list>
+        <ha-list-base>
           ${items.map((stateObj) =>
             tab === "zones"
               ? this._renderZone(stateObj)
               : this._renderEntity(stateObj)
           )}
-        </ha-md-list>
+        </ha-list-base>
       </div>
     `;
   }
@@ -780,8 +782,7 @@ export class HuiMapOverview extends LitElement {
     const location = getEntityLocation(stateObj, this._states);
 
     return html`
-      <ha-md-list-item
-        type="button"
+      <ha-list-item-button
         data-entity-id=${stateObj.entity_id}
         class=${classMap({ "no-location": !location })}
         @click=${this._handleItemClick}
@@ -795,7 +796,7 @@ export class HuiMapOverview extends LitElement {
             format="short"
           ></ha-relative-time>
         </span>
-      </ha-md-list-item>
+      </ha-list-item-button>
     `;
   }
 
@@ -803,8 +804,7 @@ export class HuiMapOverview extends LitElement {
     const count = Number(stateObj.state);
 
     return html`
-      <ha-md-list-item
-        type="button"
+      <ha-list-item-button
         data-entity-id=${stateObj.entity_id}
         @click=${this._handleItemClick}
       >
@@ -820,7 +820,7 @@ export class HuiMapOverview extends LitElement {
                 )
           }
         </span>
-      </ha-md-list-item>
+      </ha-list-item-button>
     `;
   }
 
@@ -1033,30 +1033,35 @@ export class HuiMapOverview extends LitElement {
       flex-direction: column;
     }
 
-    ha-md-list {
+    ha-list-base {
       flex: 1;
       min-height: 0;
       overflow-y: auto;
-      padding: 0;
       margin-top: var(--ha-space-2);
-      background: none;
       margin-bottom: calc(-1 * var(--sheet-bottom-space, 0px));
       padding-bottom: var(--sheet-bottom-space, 0px);
-      --md-list-item-leading-space: var(--ha-space-2);
-      --md-list-item-trailing-space: var(--ha-space-2);
-      --md-list-item-one-line-container-height: 56px;
-      --md-list-item-two-line-container-height: 64px;
     }
 
-    ha-md-list-item {
+    ha-list-item-button {
       border-radius: var(--ha-border-radius-lg);
-      --md-list-item-supporting-text-size: var(--ha-font-size-s);
-      --md-list-item-label-text-weight: var(--ha-font-weight-medium);
-      --ha-md-list-item-gap: var(--ha-space-3);
+      --ha-list-item-focus-radius: var(--ha-border-radius-lg);
+      --ha-row-item-gap: var(--ha-space-3);
+      --ha-row-item-padding-inline: var(--ha-space-2);
+      /* The ripple's hover layer would sit above the content */
+      --ha-ripple-hover-opacity: 0;
     }
 
-    ha-md-list-item.no-location {
-      --md-sys-color-on-surface: var(--secondary-text-color);
+    ha-list-item-button:hover,
+    ha-list-item-button:focus-within {
+      background: var(--ha-color-fill-neutral-quiet-resting);
+    }
+
+    ha-list-item-button::part(headline) {
+      font-weight: var(--ha-font-weight-medium);
+    }
+
+    ha-list-item-button.no-location {
+      color: var(--secondary-text-color);
     }
 
     .avatar {

@@ -24,6 +24,7 @@ import { css, html, LitElement, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators";
 import { classMap } from "lit/directives/class-map";
 import memoizeOne from "memoize-one";
+import { navigate } from "../../../common/navigate";
 import { copyToClipboard } from "../../../common/util/copy-clipboard";
 import "../../../components/ha-dropdown";
 import type { HaDropdownSelectEvent } from "../../../components/ha-dropdown";
@@ -76,6 +77,7 @@ import {
   type ConfigEntryData,
 } from "./ha-config-integration-page";
 import "./ha-config-sub-entry-row";
+import { offerMarketplaceUninstall } from "./offer-marketplace-uninstall";
 
 @customElement("ha-config-entry-row")
 export class HaConfigEntryRow extends LitElement {
@@ -154,7 +156,7 @@ export class HaConfigEntryRow extends LitElement {
     } else if (!allDevices.length && !allServices.length && entities.length) {
       statusLine.push(
         html`<a
-          href=${`/config/entities/?historyBack=1&config_entry=${item.entry_id}`}
+          href=${`/config/entities?historyBack=1&config_entry=${item.entry_id}`}
           >${this.hass.localize(
             "ui.panel.config.integrations.config_entry.entities",
             { count: entities.length }
@@ -251,7 +253,7 @@ export class HaConfigEntryRow extends LitElement {
                     href=${
                       allDevices.length === 1
                         ? `/config/devices/device/${allDevices[0].id}`
-                        : `/config/devices/dashboard?historyBack=1&config_entry=${item.entry_id}`
+                        : `/config/devices/dashboard?historyBack=1&config_entry=${item.entry_id}&status=disabled`
                     }
                   >
                     <ha-dropdown-item value="devices">
@@ -276,7 +278,7 @@ export class HaConfigEntryRow extends LitElement {
                     href=${
                       allServices.length === 1
                         ? `/config/devices/device/${allServices[0].id}`
-                        : `/config/devices/dashboard?historyBack=1&config_entry=${item.entry_id}`
+                        : `/config/devices/dashboard?historyBack=1&config_entry=${item.entry_id}&status=disabled`
                     }
                   >
                     <ha-dropdown-item value="services">
@@ -319,7 +321,7 @@ export class HaConfigEntryRow extends LitElement {
             ERROR_STATES.includes(item.state)
               ? html`
                   <a
-                    href=${`/config/logs?filter=${encodeURIComponent(item.domain)}`}
+                    href=${`/config/logs?search=${encodeURIComponent(item.domain)}`}
                   >
                     <ha-dropdown-item value="logs">
                       <ha-svg-icon
@@ -662,8 +664,13 @@ export class HaConfigEntryRow extends LitElement {
     const locale_key = result.require_restart
       ? "reload_restart_confirm"
       : "reload_confirm";
-    showAlertDialog(this, {
-      text: this.hass.localize(
+    // The row can move between sections when the entry state changes on reload
+    const host =
+      (this.isConnected
+        ? this
+        : document.querySelector<HTMLElement>("home-assistant")) ?? this;
+    showToast(host, {
+      message: this.hass.localize(
         `ui.panel.config.integrations.config_entry.${locale_key}`
       ),
     });
@@ -805,15 +812,30 @@ export class HaConfigEntryRow extends LitElement {
     }
     const result = await deleteConfigEntry(this.hass, entryId);
 
-    if (result.require_restart) {
-      showAlertDialog(this, {
-        text: this.hass.localize(
-          "ui.panel.config.integrations.config_entry.restart_confirm"
-        ),
-      });
+    const restartAlert = result.require_restart
+      ? showAlertDialog(this, {
+          text: this.hass.localize(
+            "ui.panel.config.integrations.config_entry.restart_confirm"
+          ),
+        })
+      : undefined;
+    const credentialPrompt = applicationCredentialsId
+      ? this._removeApplicationCredential(applicationCredentialsId)
+      : undefined;
+
+    // Only a custom integration can come from the Marketplace
+    if (this.manifest?.is_built_in) {
+      return;
     }
-    if (applicationCredentialsId) {
-      this._removeApplicationCredential(applicationCredentialsId);
+
+    // Asked after what deleting the entry asked, uninstalling can take this
+    // row away with the dialogs it opened
+    await Promise.all([restartAlert, credentialPrompt]);
+    if (
+      await offerMarketplaceUninstall(this, this.hass, this.data.entry.domain)
+    ) {
+      // Nothing of the integration is left to show on its page
+      navigate("/config/integrations/dashboard", { replace: true });
     }
   };
 

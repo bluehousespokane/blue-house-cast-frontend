@@ -1,10 +1,6 @@
 import type { maplibreGL } from "@maplibre/maplibre-gl-leaflet";
 import type { Map as LeafletMap, TileLayerOptions } from "leaflet";
-import type {
-  setRTLTextPlugin,
-  setWorkerUrl,
-  StyleSpecification,
-} from "maplibre-gl";
+import type { setWorkerUrl, StyleSpecification } from "maplibre-gl";
 import { deepEqual } from "../util/deep-equal";
 import type { LeafletModuleType } from "../dom/setup-leaflet-map";
 import type { ResolvedMapStyle } from "./map-styles";
@@ -20,13 +16,9 @@ import {
 // other one is built in the browser. The attribution comes from the TileJSON,
 // deliberately: it follows whoever serves the tiles.
 const SHIPPED_STYLES = {
-  light: "/static/map/light.json",
-  dark: "/static/map/dark.json",
+  light: `${__STATIC_PATH__}map/light.json`,
+  dark: `${__STATIC_PATH__}map/dark.json`,
 } as const;
-
-// Without it Arabic and Hebrew labels render reversed. Loaded by MapLibre's
-// worker, hence a URL rather than an import.
-export const RTL_TEXT_PLUGIN_URL = "/static/map/mapbox-gl-rtl-text.js";
 
 // MapLibre needs WebGL2 even for raster, so the fallback stays a Leaflet layer.
 // OSM serves no @2x variant.
@@ -78,13 +70,10 @@ export const supportsWebGL2 = (): boolean => {
 
 // The one gate for MapLibre, whether through the Leaflet adapter or the
 // engine `ha-map` drives directly. Its worker is bundled per build target
-// like the rest of it, so wherever the page runs, the worker runs too - with
-// one exception. Babel transpiles everything MapLibre is written in except
-// BigInt literals, which have no ES2017 spelling. A browser without BigInt
-// (Chromium below 67, such as Fire OS 5 tablets) cannot parse the chunk, and
-// a worker that cannot parse never reports back, hence the check up front.
-export const supportsVectorMaps = (): boolean =>
-  supportsWebGL2() && typeof BigInt === "function";
+// like the rest of it, so wherever the page runs, the worker runs too: the
+// legacy floor (Chrome 67 / Safari 15) guarantees the BigInt literals MapLibre
+// uses, which Babel cannot transpile.
+export const supportsVectorMaps = (): boolean => supportsWebGL2();
 
 // The demo has no core to proxy through. OSM sets CORS on its tiles but not on
 // its glyphs, which is why those come from VersaTiles.
@@ -103,8 +92,12 @@ const useDemoUpstream = (style: StyleSpecification): StyleSpecification => {
   return style;
 };
 
+// The origin that serves the frontend's files: the page, except for the demo
+// embed on another site
+const filesBase = () => new URL(__STATIC_PATH__, location.href);
+
 // MapLibre rejects a relative sprite URL
-const absoluteSprite = (url: string) => new URL(url, location.href).href;
+const absoluteSprite = (url: string) => new URL(url, filesBase()).href;
 
 // Shared only while in flight, or a style that failed once would never be
 // fetched again. Text rather than a parsed style: MapLibre mutates what it
@@ -152,28 +145,15 @@ export const loadStyle = async (
 
 // Global to MapLibre; set once before the first map is created. Absolute,
 // because on Cast the page is not served from the instance. The URL comes
-// from the build: the worker is an entry of its own, next to the app.
+// from the build: the worker is an entry of its own, next to the app. MapLibre
+// starts a worker from another origin itself.
 let workerUrlSet = false;
 export const ensureWorkerUrl = (setUrl: typeof setWorkerUrl) => {
   if (workerUrlSet) {
     return;
   }
   workerUrlSet = true;
-  setUrl(new URL(__MAPLIBRE_WORKER_URL__, location.href).href);
-};
-
-// Global to MapLibre, and it throws when set twice.
-let rtlTextPluginRequested = false;
-export const ensureRTLTextPlugin = (setPlugin: typeof setRTLTextPlugin) => {
-  if (rtlTextPluginRequested) {
-    return;
-  }
-  rtlTextPluginRequested = true;
-  setPlugin(new URL(RTL_TEXT_PLUGIN_URL, location.href).href, true).catch(
-    () => {
-      // RTL labels stay reversed; everything else still renders.
-    }
-  );
+  setUrl(new URL(__MAPLIBRE_WORKER_URL__, filesBase()).href);
 };
 
 const createVectorLayer = async (
@@ -390,7 +370,6 @@ export const createBaseLayer = async (
         import("maplibre-gl"),
       ]);
       ensureWorkerUrl(maplibre.setWorkerUrl);
-      ensureRTLTextPlugin(maplibre.setRTLTextPlugin);
       vectorLayer = await createVectorLayer(
         createLayer,
         leaflet,

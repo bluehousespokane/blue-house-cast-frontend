@@ -36,7 +36,8 @@ const toLineChartEntities = (history) =>
 
 describe("generateStateHistoryChartLineData", () => {
   const baseParams = {
-    hass,
+    localize: hass.localize,
+    states: hass.states,
     computedStyles,
     showNames: true,
     endTime: new Date(FIXED_EPOCH_MS + dayMs),
@@ -76,13 +77,13 @@ describe("generateStateHistoryChartLineData", () => {
     expect(
       generateStateHistoryChartLineData({
         ...baseParams,
-        hass: createMockHass({
+        states: {
           "sensor.power_meter": createMockEntityState(
             "sensor.power_meter",
             "123.4",
             { unit_of_measurement: "W" }
           ),
-        }),
+        },
         data,
         endTime,
         now: new Date(endTime.getTime() + 500),
@@ -97,13 +98,13 @@ describe("generateStateHistoryChartLineData", () => {
     const endTime = new Date(FIXED_EPOCH_MS + dayMs);
     const points = generateStateHistoryChartLineData({
       ...baseParams,
-      hass: createMockHass({
+      states: {
         "sensor.power_meter": createMockEntityState(
           "sensor.power_meter",
           "123.4",
           { unit_of_measurement: "W" }
         ),
-      }),
+      },
       data,
       endTime,
       now: new Date(endTime.getTime() - 1500),
@@ -136,6 +137,26 @@ describe("generateStateHistoryChartLineData", () => {
     const result = generateStateHistoryChartLineData({ ...baseParams, data });
     expect(result?.visualMap).toBeDefined();
     expect(result).toMatchSnapshot();
+  });
+
+  it("matches snapshot when states continue past endTime", () => {
+    // A value and a gap that only closes after endTime are both dropped
+    const endSec = baseParams.endTime.getTime() / 1000;
+    const data = toLineChartEntities({
+      "sensor.power_meter": [
+        { s: "10", a: { unit_of_measurement: "W" }, lu: endSec - 300 },
+        { s: "12", a: {}, lu: endSec - 240 },
+        { s: "unavailable", a: {}, lu: endSec - 180 },
+        { s: "11", a: {}, lu: endSec - 120 },
+        { s: "13", a: {}, lu: endSec - 60 },
+        { s: "14", a: {}, lu: endSec + 60 },
+        { s: "unknown", a: {}, lu: endSec + 120 },
+        { s: "15", a: {}, lu: endSec + 180 },
+      ],
+    });
+    expect(
+      generateStateHistoryChartLineData({ ...baseParams, data })
+    ).toMatchSnapshot();
   });
 
   it("large mixed payload digest is stable", () => {

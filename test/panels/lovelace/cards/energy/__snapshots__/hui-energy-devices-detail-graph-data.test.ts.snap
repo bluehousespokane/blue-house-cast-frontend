@@ -14645,6 +14645,7 @@ exports[`generateEnergyDevicesDetailGraphData > matches snapshot for 5minute per
       "secondaryIds": [
         "compare-sensor.grid_consumption-0",
       ],
+      "value": "298.88 kWh",
     },
     {
       "id": "sensor.battery_discharge-1",
@@ -14657,6 +14658,7 @@ exports[`generateEnergyDevicesDetailGraphData > matches snapshot for 5minute per
       "secondaryIds": [
         "compare-sensor.battery_discharge-1",
       ],
+      "value": "282.88 kWh",
     },
     {
       "id": "sensor.solar_production-2",
@@ -14669,6 +14671,7 @@ exports[`generateEnergyDevicesDetailGraphData > matches snapshot for 5minute per
       "secondaryIds": [
         "compare-sensor.solar_production-2",
       ],
+      "value": "277.94 kWh",
     },
     {
       "id": "untracked-1706745600000",
@@ -14681,6 +14684,7 @@ exports[`generateEnergyDevicesDetailGraphData > matches snapshot for 5minute per
       "secondaryIds": [
         "compare-untracked-1706745600000",
       ],
+      "value": "0 kWh",
     },
     {
       "id": "untracked-negative-1706745600000",
@@ -14693,6 +14697,7 @@ exports[`generateEnergyDevicesDetailGraphData > matches snapshot for 5minute per
       "secondaryIds": [
         "compare-untracked-negative-1706745600000",
       ],
+      "value": "-570.86 kWh",
     },
   ],
   "start": 2024-01-01T00:00:00.000Z,
@@ -16051,6 +16056,7 @@ exports[`generateEnergyDevicesDetailGraphData > matches snapshot for a small hou
       "secondaryIds": [
         "compare-sensor.grid_consumption-0",
       ],
+      "value": "21.8 kWh",
     },
     {
       "id": "sensor.solar_production-1",
@@ -16063,6 +16069,7 @@ exports[`generateEnergyDevicesDetailGraphData > matches snapshot for a small hou
       "secondaryIds": [
         "compare-sensor.solar_production-1",
       ],
+      "value": "20.75 kWh",
     },
     {
       "id": "sensor.battery_discharge-2",
@@ -16075,6 +16082,7 @@ exports[`generateEnergyDevicesDetailGraphData > matches snapshot for a small hou
       "secondaryIds": [
         "compare-sensor.battery_discharge-2",
       ],
+      "value": "19.72 kWh",
     },
     {
       "id": "untracked-1706745600000",
@@ -16087,6 +16095,7 @@ exports[`generateEnergyDevicesDetailGraphData > matches snapshot for a small hou
       "secondaryIds": [
         "compare-untracked-1706745600000",
       ],
+      "value": "0 kWh",
     },
     {
       "id": "untracked-negative-1706745600000",
@@ -16099,6 +16108,7 @@ exports[`generateEnergyDevicesDetailGraphData > matches snapshot for a small hou
       "secondaryIds": [
         "compare-untracked-negative-1706745600000",
       ],
+      "value": "-46.6 kWh",
     },
   ],
   "start": 2024-01-01T00:00:00.000Z,
@@ -16607,6 +16617,7 @@ exports[`generateEnergyDevicesDetailGraphData > matches snapshot for daily perio
       "secondaryIds": [
         "compare-sensor.solar_production-0",
       ],
+      "value": "8.35 kWh",
     },
     {
       "id": "sensor.battery_discharge-1",
@@ -16619,6 +16630,7 @@ exports[`generateEnergyDevicesDetailGraphData > matches snapshot for daily perio
       "secondaryIds": [
         "compare-sensor.battery_discharge-1",
       ],
+      "value": "8.3 kWh",
     },
     {
       "id": "sensor.grid_consumption-2",
@@ -16631,6 +16643,7 @@ exports[`generateEnergyDevicesDetailGraphData > matches snapshot for daily perio
       "secondaryIds": [
         "compare-sensor.grid_consumption-2",
       ],
+      "value": "6.74 kWh",
     },
     {
       "id": "untracked-1706745600000",
@@ -16643,6 +16656,7 @@ exports[`generateEnergyDevicesDetailGraphData > matches snapshot for daily perio
       "secondaryIds": [
         "compare-untracked-1706745600000",
       ],
+      "value": "0 kWh",
     },
     {
       "id": "untracked-negative-1706745600000",
@@ -16655,6 +16669,7 @@ exports[`generateEnergyDevicesDetailGraphData > matches snapshot for daily perio
       "secondaryIds": [
         "compare-untracked-negative-1706745600000",
       ],
+      "value": "-16.58 kWh",
     },
   ],
   "start": 2024-01-01T00:00:00.000Z,
@@ -18224,6 +18239,7 @@ exports[`generateEnergyDevicesDetailGraphData > matches snapshot with child devi
       "secondaryIds": [
         "compare-sensor.battery_charge-0",
       ],
+      "value": "29.36 kWh",
     },
     {
       "id": "sensor.battery_discharge-1",
@@ -18236,6 +18252,7 @@ exports[`generateEnergyDevicesDetailGraphData > matches snapshot with child devi
       "secondaryIds": [
         "compare-sensor.battery_discharge-1",
       ],
+      "value": "25.42 kWh",
     },
     {
       "id": "sensor.solar_production-2",
@@ -18248,6 +18265,7 @@ exports[`generateEnergyDevicesDetailGraphData > matches snapshot with child devi
       "secondaryIds": [
         "compare-sensor.solar_production-2",
       ],
+      "value": "21.88 kWh",
     },
     {
       "id": "sensor.grid_consumption-3",
@@ -18260,6 +18278,7 @@ exports[`generateEnergyDevicesDetailGraphData > matches snapshot with child devi
       "secondaryIds": [
         "compare-sensor.grid_consumption-3",
       ],
+      "value": "3.63 kWh",
     },
     {
       "id": "untracked-1706745600000",
@@ -18272,6 +18291,7 @@ exports[`generateEnergyDevicesDetailGraphData > matches snapshot with child devi
       "secondaryIds": [
         "compare-untracked-1706745600000",
       ],
+      "value": "0 kWh",
     },
     {
       "id": "untracked-negative-1706745600000",
@@ -18284,6 +18304,7 @@ exports[`generateEnergyDevicesDetailGraphData > matches snapshot with child devi
       "secondaryIds": [
         "compare-untracked-negative-1706745600000",
       ],
+      "value": "-65.73 kWh",
     },
   ],
   "start": 2024-01-01T00:00:00.000Z,
@@ -23020,6 +23041,7 @@ exports[`generateEnergyDevicesDetailGraphData > matches snapshot with compare da
       "secondaryIds": [
         "compare-sensor.grid_consumption-0",
       ],
+      "value": "25.65 kWh",
     },
     {
       "id": "sensor.solar_production-1",
@@ -23032,6 +23054,7 @@ exports[`generateEnergyDevicesDetailGraphData > matches snapshot with compare da
       "secondaryIds": [
         "compare-sensor.solar_production-1",
       ],
+      "value": "22.68 kWh",
     },
     {
       "id": "sensor.battery_discharge-2",
@@ -23044,6 +23067,7 @@ exports[`generateEnergyDevicesDetailGraphData > matches snapshot with compare da
       "secondaryIds": [
         "compare-sensor.battery_discharge-2",
       ],
+      "value": "21.05 kWh",
     },
     {
       "id": "untracked-1706745600000",
@@ -23056,6 +23080,7 @@ exports[`generateEnergyDevicesDetailGraphData > matches snapshot with compare da
       "secondaryIds": [
         "compare-untracked-1706745600000",
       ],
+      "value": "0 kWh",
     },
     {
       "id": "untracked-negative-1706745600000",
@@ -23068,6 +23093,7 @@ exports[`generateEnergyDevicesDetailGraphData > matches snapshot with compare da
       "secondaryIds": [
         "compare-untracked-negative-1706745600000",
       ],
+      "value": "-40.32 kWh",
     },
   ],
   "start": 2024-01-01T00:00:00.000Z,
@@ -24202,6 +24228,7 @@ exports[`generateEnergyDevicesDetailGraphData > respects max_devices config 1`] 
       "secondaryIds": [
         "compare-sensor.solar_production-0",
       ],
+      "value": "29.24 kWh",
     },
     {
       "id": "sensor.battery_discharge-1",
@@ -24214,6 +24241,7 @@ exports[`generateEnergyDevicesDetailGraphData > respects max_devices config 1`] 
       "secondaryIds": [
         "compare-sensor.battery_discharge-1",
       ],
+      "value": "24.58 kWh",
     },
     {
       "id": "untracked-1706745600000",
@@ -24226,6 +24254,7 @@ exports[`generateEnergyDevicesDetailGraphData > respects max_devices config 1`] 
       "secondaryIds": [
         "compare-untracked-1706745600000",
       ],
+      "value": "3.91 kWh",
     },
     {
       "id": "untracked-negative-1706745600000",
@@ -24238,6 +24267,7 @@ exports[`generateEnergyDevicesDetailGraphData > respects max_devices config 1`] 
       "secondaryIds": [
         "compare-untracked-negative-1706745600000",
       ],
+      "value": "-30.83 kWh",
     },
   ],
   "start": 2024-01-01T00:00:00.000Z,

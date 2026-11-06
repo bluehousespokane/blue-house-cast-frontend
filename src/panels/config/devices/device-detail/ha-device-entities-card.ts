@@ -4,21 +4,15 @@ import { customElement, property } from "lit/decorators";
 import { classMap } from "lit/directives/class-map";
 import { repeat } from "lit/directives/repeat";
 import { until } from "lit/directives/until";
-import "../../../../components/ha-button";
 import "../../../../components/ha-card";
 import "../../../../components/ha-icon";
 import "../../../../components/ha-list";
 import "../../../../components/ha-list-item";
-import { computeEntityEntryName } from "../../../../common/entity/compute_entity_name";
+import { computeEntityEntryName } from "../../../../common/entity/compute_entity_name_display";
 import type { EntityRegistryEntry } from "../../../../data/entity/entity_registry";
 import { entryIcon } from "../../../../data/icons";
 import { showMoreInfoDialog } from "../../../../dialogs/more-info/show-ha-more-info-dialog";
 import type { HomeAssistant } from "../../../../types";
-import {
-  computeCards,
-  computeSection,
-} from "../../../lovelace/common/generate-lovelace-config";
-import { addEntitiesToLovelaceView } from "../../../lovelace/editor/add-entities-to-view";
 import type { EntityRegistryStateEntry } from "../ha-config-device-page";
 import { entityRowElement } from "../../../lovelace/entity-rows/entity-row-element-directive";
 
@@ -63,7 +57,7 @@ export class HaDeviceEntitiesCard extends LitElement {
     const mainEntities: EntityRegistryStateEntry[] = [];
     const additionalEntities: EntityRegistryStateEntry[] = [];
     enabledEntities.forEach((entry) => {
-      if (computeEntityEntryName(entry, this.hass.devices)) {
+      if (computeEntityEntryName(entry)) {
         additionalEntities.push(entry);
       } else {
         mainEntities.push(entry);
@@ -126,13 +120,6 @@ export class HaDeviceEntitiesCard extends LitElement {
               </div>`
             : nothing
         }
-        <div class="card-actions">
-          <ha-button appearance="plain" @click=${this._addToLovelaceView}>
-            ${this.hass.localize(
-              "ui.panel.config.devices.entities.add_entities_lovelace"
-            )}
-          </ha-button>
-        </div>
       </ha-card>
     `;
   }
@@ -187,24 +174,6 @@ export class HaDeviceEntitiesCard extends LitElement {
   private _openEditEntry(ev: Event): void {
     const entry = (ev.currentTarget! as any).entry;
     showMoreInfoDialog(this, { entityId: entry.entity_id });
-  }
-
-  private _addToLovelaceView(): void {
-    const entities = this.entities
-      .filter((entity) => !entity.disabled_by)
-      .map((entity) => entity.entity_id);
-
-    addEntitiesToLovelaceView(
-      this,
-      this.hass,
-      computeCards(this.hass, entities, {
-        title: this.deviceName,
-      }),
-      computeSection(entities, {
-        title: this.deviceName,
-      }),
-      entities
-    );
   }
 
   static styles = css`
@@ -279,9 +248,6 @@ export class HaDeviceEntitiesCard extends LitElement {
     ha-list-item {
       height: 40px;
       --mdc-ripple-color: transparent;
-    }
-    .card-actions {
-      padding: 4px 16px 4px 4px;
     }
   `;
 }

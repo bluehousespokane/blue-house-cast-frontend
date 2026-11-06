@@ -18,7 +18,9 @@ import {
   mdiPlusCircleMultipleOutline,
   mdiRenameBox,
   mdiStopCircleOutline,
+  mdiSwapHorizontal,
 } from "@mdi/js";
+import { provide } from "@lit/context";
 import deepClone from "deep-clone-simple";
 import type { HassServiceTarget } from "home-assistant-js-websocket";
 import { dump } from "js-yaml";
@@ -28,6 +30,7 @@ import { customElement, property, query, state } from "lit/decorators";
 import memoizeOne from "memoize-one";
 import { consume } from "../../../../common/decorators/consume";
 import "../trigger/ha-automation-trigger-references";
+import { targetExpandGroupContext } from "../../../../components/target-picker/target-expand-group-context";
 import { ensureArray } from "../../../../common/array/ensure-array";
 import { storage } from "../../../../common/decorators/storage";
 import { fireEvent } from "../../../../common/dom/fire_event";
@@ -64,6 +67,7 @@ import type {
   Condition,
   TriggerCondition,
 } from "../../../../data/automation";
+import { getRowNote } from "../../../../data/automation";
 import type { ConditionDescriptions } from "../../../../data/condition";
 import { CONDITION_BUILDING_BLOCKS } from "../../../../data/condition";
 import { validateConfig } from "../../../../data/config";
@@ -83,6 +87,7 @@ import type {
 } from "../../../../data/script";
 import { isAction } from "../../../../data/script";
 import { describeAction } from "../../../../data/script_i18n";
+import { portAction } from "../../../../data/automation_replace";
 import type { TargetSelector } from "../../../../data/selector";
 import { callExecuteScript } from "../../../../data/service";
 import {
@@ -91,10 +96,17 @@ import {
 } from "../../../../dialogs/generic/show-dialog-box";
 import type { HomeAssistant } from "../../../../types";
 import { isMac } from "../../../../util/is_mac";
-import { showEditorToast } from "../editor-toast";
+import {
+  createAction,
+  getActionPickerKey,
+  isActionReplaceable,
+} from "../automation-element-config";
+import { showEditorToast, showReplacedToast } from "../editor-toast";
 import "../ha-automation-editor-warning";
 import "../ha-automation-row-options";
 import { overflowStyles, rowStyles } from "../styles";
+import { showAddAutomationElementDialog } from "../show-add-automation-element-dialog";
+import { getUiSupportWarnings } from "../ui-support";
 import { getDeviceTarget } from "../target/get_device_target";
 import { getEntityTarget } from "../target/get_entity_target";
 import "../target/ha-automation-row-targets";
@@ -115,6 +127,7 @@ import "./types/ha-automation-action-stop";
 import "./types/ha-automation-action-wait_for_trigger";
 import "./types/ha-automation-action-wait_template";
 import { renderCtrlOrCmd } from "../../../../common/keyboard/ctrl-or-cmd";
+import { scrollRowIntoView } from "../scroll-row-into-view";
 
 export interface ActionElement extends LitElement {
   action: Action;
@@ -144,8 +157,21 @@ export const handleChangeEvent = (element: ActionElement, ev: CustomEvent) => {
   fireEvent(element, "value-changed", { value: newAction });
 };
 
+const getWaitTemplateCondition = (template: unknown): Condition | undefined =>
+  typeof template === "string" && template.trim()
+    ? {
+        condition: "template",
+        value_template: template,
+      }
+    : undefined;
+
 @customElement("ha-automation-action-row")
 export default class HaAutomationActionRow extends LitElement {
+  // Conditions don't expand the groups their targets name; other actions do.
+  @provide({ context: targetExpandGroupContext })
+  @state()
+  protected _targetExpandGroup = true;
+
   @property({ attribute: false }) public hass!: HomeAssistant;
 
   @property({ attribute: false }) public action!: Action;
@@ -238,6 +264,14 @@ export default class HaAutomationActionRow extends LitElement {
       return;
     }
     const type = getAutomationActionType(this.action);
+    this._targetExpandGroup = type !== "condition";
+    if (this._warnings && this._yamlMode && type) {
+      this._warnings = getUiSupportWarnings(
+        this.hass.localize,
+        `ha-automation-action-${type}`,
+        this.action
+      );
+    }
     this._uiModeAvailable =
       type !== undefined && !YAML_ONLY_ACTION_TYPES.has(type as any);
     if (!this._uiModeAvailable && !this._yamlMode) {
@@ -308,6 +342,11 @@ export default class HaAutomationActionRow extends LitElement {
           ? this._extractConditionTarget(this.action as Condition)
           : undefined;
 
+    const waitTemplateCondition =
+      type === "wait_template" && "wait_template" in this.action
+        ? this._waitTemplateCondition(this.action.wait_template)
+        : undefined;
+
     const serviceTargetSpec =
       type === "condition"
         ? this._conditionDescriptions?.[(this.action as Condition).condition]
@@ -318,10 +357,15 @@ export default class HaAutomationActionRow extends LitElement {
             ]?.target
           : undefined;
 
-    const noteTooltipText = truncateWithEllipsis(
-      this.action.note?.trim() || "",
-      250
-    );
+    const note = getRowNote(this.action.note);
+
+    const liveTestCondition = !this.optionsInSidebar
+      ? undefined
+      : waitTemplateCondition ||
+        (type === "condition" &&
+        (this.action as Condition).condition !== "trigger"
+          ? (this.action as Condition)
+          : undefined);
 
     return html`
       ${
@@ -330,22 +374,18 @@ export default class HaAutomationActionRow extends LitElement {
               <ha-service-icon
                 slot="leading-icon"
                 class="action-icon"
-                .hass=${this.hass}
                 .service=${this.action.action}
               ></ha-service-icon>
             `
-          : type === "condition" &&
-              this.optionsInSidebar &&
-              (this.action as Condition).condition !== "trigger"
+          : liveTestCondition
             ? html`<ha-automation-condition-live-test
                 id="condition-icon"
                 slot="leading-icon"
-                .hass=${this.hass}
-                .condition=${this.action as Condition}
+                .condition=${liveTestCondition}
               >
                 <ha-svg-icon
                   class="action-icon"
-                  .path=${ACTION_ICONS[type]}
+                  .path=${ACTION_ICONS[type!]}
                 ></ha-svg-icon>
               </ha-automation-condition-live-test>`
             : html`
@@ -393,7 +433,7 @@ export default class HaAutomationActionRow extends LitElement {
             : nothing
         }
         ${
-          noteTooltipText
+          note
             ? html`
                 <ha-svg-icon
                   id="note-icon"
@@ -405,7 +445,7 @@ export default class HaAutomationActionRow extends LitElement {
                   class="note-indicator"
                 ></ha-svg-icon
                 ><ha-tooltip for="note-icon"
-                  ><p>${noteTooltipText}</p></ha-tooltip
+                  ><p>${truncateWithEllipsis(note, 250)}</p></ha-tooltip
                 >
               `
             : nothing
@@ -432,7 +472,9 @@ export default class HaAutomationActionRow extends LitElement {
         class="event-chip"
         aria-live="polite"
       >
-        ${this.hass.localize("ui.panel.config.automation.editor.actions.disabled")}
+        ${this.hass.localize(
+          "ui.panel.config.automation.editor.actions.disabled"
+        )}
       </ha-automation-row-event-chip>
 
       <ha-automation-row-event-chip
@@ -469,6 +511,21 @@ export default class HaAutomationActionRow extends LitElement {
             this.hass.localize("ui.panel.config.automation.editor.actions.run")
           )}
         </ha-dropdown-item>
+        ${
+          isActionReplaceable(this.action)
+            ? html`<ha-dropdown-item value="replace" .disabled=${this.disabled}>
+                <ha-svg-icon
+                  slot="icon"
+                  .path=${mdiSwapHorizontal}
+                ></ha-svg-icon>
+                ${this._renderOverflowLabel(
+                  this.hass.localize(
+                    "ui.panel.config.automation.editor.actions.replace"
+                  )
+                )}
+              </ha-dropdown-item>`
+            : nothing
+        }
         <ha-dropdown-item value="rename" .disabled=${this.disabled}>
           <ha-svg-icon slot="icon" .path=${mdiRenameBox}></ha-svg-icon>
           ${this._renderOverflowLabel(
@@ -833,6 +890,8 @@ export default class HaAutomationActionRow extends LitElement {
     copyToClipboard(dump(action));
   }
 
+  private _waitTemplateCondition = memoizeOne(getWaitTemplateCondition);
+
   private _onDisable = () => {
     const enabled = !(this.action.enabled ?? true);
     const value = { ...this.action, enabled };
@@ -884,8 +943,10 @@ export default class HaAutomationActionRow extends LitElement {
     this._running = false;
     this._runResult = undefined;
 
+    const { enabled: _enabled, ...action } = this.action;
+
     const validated = await validateConfig(this.hass, {
-      actions: this.action,
+      actions: action,
     });
 
     if (!validated.actions.valid) {
@@ -909,7 +970,7 @@ export default class HaAutomationActionRow extends LitElement {
       }, 500);
 
       try {
-        await callExecuteScript(this.hass, this.action);
+        await callExecuteScript(this.hass, action);
         clearTimeout(runTimeout);
       } catch (err: any) {
         clearTimeout(runTimeout);
@@ -954,6 +1015,32 @@ export default class HaAutomationActionRow extends LitElement {
     showAlertDialog(this, {
       title: this._runResult!.title,
       text: this._runResult!.details,
+    });
+  };
+
+  private _replaceAction = () => {
+    // The sidebar keeps its callback when YAML turns the action into a block.
+    if (!isActionReplaceable(this.action)) {
+      return;
+    }
+    if (this.narrow) {
+      fireEvent(this, "request-close-sidebar");
+    }
+    const action = this.action;
+    const key = getActionPickerKey(action);
+    showAddAutomationElementDialog(this, {
+      type: "action",
+      clipboardItem: undefined,
+      replacingItemKey: key,
+      add: (value, target) => {
+        if (value === key && !target) {
+          return;
+        }
+        fireEvent(this, "replace-item", {
+          value: portAction(action, createAction(value, target), this.hass),
+        });
+        showReplacedToast(this, this.hass.localize);
+      },
     });
   };
 
@@ -1091,7 +1178,13 @@ export default class HaAutomationActionRow extends LitElement {
       message: this.hass.localize(
         "ui.panel.config.automation.editor.actions.cut_to_clipboard"
       ),
-      duration: 2000,
+      duration: 4000,
+      action: {
+        text: this.hass.localize("ui.common.undo"),
+        action: () => {
+          fireEvent(window, "undo-change");
+        },
+      },
     });
   };
 
@@ -1127,7 +1220,7 @@ export default class HaAutomationActionRow extends LitElement {
   };
 
   private _handleUiModeNotAvailable(ev: CustomEvent) {
-    this._warnings = handleStructError(this.hass, ev.detail).warnings;
+    this._warnings = handleStructError(this.hass.localize, ev.detail).warnings;
     if (!this._yamlMode) {
       this._yamlMode = true;
     }
@@ -1171,12 +1264,17 @@ export default class HaAutomationActionRow extends LitElement {
           this.focus();
         }
       },
+      replace: isActionReplaceable(sidebarAction)
+        ? this._replaceAction
+        : undefined,
       rename: () => {
         this._renameAction();
       },
       editNote: this._editNoteAction,
-      toggleYamlMode: () => {
-        this._toggleYamlMode();
+      toggleYamlMode: (yamlMode?: boolean) => {
+        if (yamlMode === undefined || yamlMode !== this._yamlMode) {
+          this._toggleYamlMode();
+        }
         this.openSidebar();
       },
       disable: this._onDisable,
@@ -1200,10 +1298,7 @@ export default class HaAutomationActionRow extends LitElement {
 
     if (this.narrow) {
       window.setTimeout(() => {
-        this.scrollIntoView({
-          block: "start",
-          behavior: "smooth",
-        });
+        scrollRowIntoView(this);
       }, 180); // duration of transition of added padding for bottom sheet
     }
   }
@@ -1266,6 +1361,9 @@ export default class HaAutomationActionRow extends LitElement {
     switch (action) {
       case "run":
         this._runAction();
+        break;
+      case "replace":
+        this._replaceAction();
         break;
       case "rename":
         this._renameAction();

@@ -14,6 +14,7 @@ dist/
 # Node
 node_modules/
 npm-debug.log
+.pnpm-store/
 
 # Python stuff
 *.py[cod]
@@ -66,4 +67,3 @@ test/e2e/app/dist/
 .serena
 
 test/benchmarks/results/
-

@@ -42,12 +42,12 @@ import {
   fetchConfig,
   isStrategyDashboard,
 } from "../../../../src/data/lovelace/config/types";
+import { normalizeLovelaceConfig } from "../../../../src/data/lovelace/config/normalize";
 import { fetchResources } from "../../../../src/data/lovelace/resource";
 import { loadLovelaceResources } from "../../../../src/panels/lovelace/common/load-resources";
 import { HassElement } from "../../../../src/state/hass-element";
 import { castContext } from "../cast_context";
 import { getPanelTitleFromUrlPath } from "../../../../src/data/panel";
-import { checkLovelaceConfig } from "../../../../src/panels/lovelace/common/check-lovelace-config";
 import { isRequestedLovelaceViewReady } from "../view_ready";
 import type { CastViewChanged } from "./hc-lovelace";
 import { getAmbientDisplayData } from "../ambient";
@@ -881,7 +881,7 @@ export class HcMain extends HassElement {
           await import("../../../../src/panels/lovelace/strategies/get-strategy")
         ).generateLovelaceDashboardStrategy(rawConfig, this.hass!)
       : (rawConfig as LovelaceConfig);
-    const checked = checkLovelaceConfig(config) as LovelaceConfig;
+    const checked = normalizeLovelaceConfig(config) as LovelaceConfig;
     if (
       !isRequestedLovelaceViewReady(
         checked.views,
@@ -913,7 +913,7 @@ export class HcMain extends HassElement {
       this._urlPath || "lovelace"
     );
     castContext.setApplicationState(title || "");
-    this._lovelaceConfig = checkLovelaceConfig(
+    this._lovelaceConfig = normalizeLovelaceConfig(
       lovelaceConfig
     ) as LovelaceConfig;
     void this.updateComplete.then(() => this._sendStatus());

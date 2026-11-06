@@ -200,12 +200,12 @@ export interface MediaPlayerItem {
 }
 
 export const browseMediaPlayer = (
-  hass: HomeAssistant,
+  callWS: HomeAssistant["callWS"],
   entityId: string,
   mediaContentId?: string,
   mediaContentType?: string
 ): Promise<MediaPlayerItem> =>
-  hass.callWS<MediaPlayerItem>({
+  callWS<MediaPlayerItem>({
     type: "media_player/browse_media",
     entity_id: entityId,
     media_content_id: mediaContentId,
@@ -217,14 +217,14 @@ export interface SearchMediaResult {
 }
 
 export const searchMediaPlayer = (
-  hass: HomeAssistant,
+  callWS: HomeAssistant["callWS"],
   entityId: string,
   searchQuery: string,
   mediaContentId?: string,
   mediaContentType?: string,
   mediaFilterClasses?: string[]
 ): Promise<SearchMediaResult> =>
-  hass.callWS<SearchMediaResult>({
+  callWS<SearchMediaResult>({
     type: "media_player/search_media",
     entity_id: entityId,
     search_query: searchQuery,
@@ -545,10 +545,12 @@ export const mediaPlayerPlayMedia = (
 };
 
 export const mediaPlayerJoin = (
-  hass: HomeAssistant,
+  callService: HomeAssistant["callService"],
   entity_id: string,
   group_members: string[]
-) => hass.callService("media_player", "join", { group_members }, { entity_id });
+) => callService("media_player", "join", { group_members }, { entity_id });
 
-export const mediaPlayerUnjoin = (hass: HomeAssistant, entity_id: string) =>
-  hass.callService("media_player", "unjoin", {}, { entity_id });
+export const mediaPlayerUnjoin = (
+  callService: HomeAssistant["callService"],
+  entity_id: string
+) => callService("media_player", "unjoin", {}, { entity_id });
