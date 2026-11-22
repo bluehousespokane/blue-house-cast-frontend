@@ -29,7 +29,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
-      actions: read
       contents: write
       statuses: write
     steps:
@@ -66,8 +65,8 @@ jobs:
             exit 0
           fi
           if [[ "$GITHUB_EVENT_NAME" == schedule ]]; then
-            prior_failure=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=blue-house-cast-upstream-failure-$release&per_page=1" --jq .total_count)
-            if (( prior_failure > 0 )); then
+            failure_tag="blue-house-cast-upstream-failure-$release"
+            if git ls-remote --exit-code --tags origin "refs/tags/$failure_tag" >/dev/null 2>&1; then
               echo "check=false" >> "$GITHUB_OUTPUT"
               echo "Upstream $release still requires manual review; its first failure was already reported. Use workflow dispatch to retry it." >> "$GITHUB_STEP_SUMMARY"
               exit 0
@@ -119,8 +118,14 @@ jobs:
           git diff --exit-code
       - name: Accept validated upstream merge
         if: steps.upstream.outputs.updated == 'true'
+        env:
+          RELEASE: ${{ steps.upstream.outputs.release }}
         run: |
           git push origin HEAD:blue-house
+          failure_tag="blue-house-cast-upstream-failure-$RELEASE"
+          if git ls-remote --exit-code --tags origin "refs/tags/$failure_tag" >/dev/null 2>&1; then
+            git push origin ":refs/tags/$failure_tag"
+          fi
           echo "Validated fork commit: $(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
       - name: Record validation for the exact fork commit
         if: steps.upstream.outputs.check == 'true'
@@ -132,14 +137,12 @@ jobs:
             -f context=blue-house-cast/build \
             -f description='Cast checks and production build passed' \
             -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-      - name: Prepare scheduled failure marker
-        if: failure() && github.event_name == 'schedule' && steps.upstream.outputs.release != ''
-        run: printf '%s\n' '${{ steps.upstream.outputs.release }}' > .blue-house-cast-upstream-failure
       - name: Remember reported scheduled failure
         if: failure() && github.event_name == 'schedule' && steps.upstream.outputs.release != ''
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: blue-house-cast-upstream-failure-${{ steps.upstream.outputs.release }}
-          path: .blue-house-cast-upstream-failure
-          if-no-files-found: error
-          retention-days: 90
+        env:
+          RELEASE: ${{ steps.upstream.outputs.release }}
+        run: |
+          failure_tag="blue-house-cast-upstream-failure-$RELEASE"
+          git tag "$failure_tag" "$GITHUB_SHA"
+          git push origin "refs/tags/$failure_tag"
+          echo "Recorded the first scheduled failure for upstream $RELEASE." >> "$GITHUB_STEP_SUMMARY"
