@@ -4,7 +4,7 @@ on:
   push:
     branches: [blue-house, blue-house-cast-splash-ha-20260930-4]
   schedule:
-    - cron: "23 7 * * *"
+    - cron: "23 15 * * 5"
   workflow_dispatch:
     inputs:
       sync_upstream:
@@ -29,6 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
+      actions: read
       contents: write
       statuses: write
     steps:
@@ -47,6 +48,7 @@ jobs:
         run: |
           set -euo pipefail
           echo "check=true" >> "$GITHUB_OUTPUT"
+          echo "conflict=false" >> "$GITHUB_OUTPUT"
           echo "updated=false" >> "$GITHUB_OUTPUT"
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
@@ -55,6 +57,7 @@ jobs:
           fi
           release=$(gh api repos/home-assistant/frontend/releases/latest --jq .tag_name)
           [[ "$release" =~ ^[0-9]{8}\.[0-9]+$ ]]
+          echo "release=$release" >> "$GITHUB_OUTPUT"
           git remote add upstream https://github.com/home-assistant/frontend.git
           git fetch --no-tags upstream "refs/tags/$release:refs/tags/$release"
           if git merge-base --is-ancestor "$release" HEAD; then
@@ -62,13 +65,27 @@ jobs:
             echo "Upstream $release is already included." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
+          if [[ "$GITHUB_EVENT_NAME" == schedule ]]; then
+            prior_failure=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=blue-house-cast-upstream-failure-$release&per_page=1" --jq .total_count)
+            if (( prior_failure > 0 )); then
+              echo "check=false" >> "$GITHUB_OUTPUT"
+              echo "Upstream $release still requires manual review; its first failure was already reported. Use workflow dispatch to retry it." >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+          fi
           if ! git merge --no-edit "$release"; then
             git merge --abort
+            echo "check=false" >> "$GITHUB_OUTPUT"
+            echo "conflict=true" >> "$GITHUB_OUTPUT"
             echo "::error::Upstream $release conflicts with this fork; manual review is required."
-            exit 1
+            echo "Upstream $release conflicts with this fork; manual review is required." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
           fi
           echo "updated=true" >> "$GITHUB_OUTPUT"
           echo "Candidate merge: upstream $release" >> "$GITHUB_STEP_SUMMARY"
+      - name: Report upstream conflict
+        if: steps.upstream.outputs.conflict == 'true'
+        run: exit 1
       - name: Set up Node
         if: steps.upstream.outputs.check == 'true'
         uses: actions/setup-node@v4
@@ -115,3 +132,14 @@ jobs:
             -f context=blue-house-cast/build \
             -f description='Cast checks and production build passed' \
             -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+      - name: Prepare scheduled failure marker
+        if: failure() && github.event_name == 'schedule' && steps.upstream.outputs.release != ''
+        run: printf '%s\n' '${{ steps.upstream.outputs.release }}' > .blue-house-cast-upstream-failure
+      - name: Remember reported scheduled failure
+        if: failure() && github.event_name == 'schedule' && steps.upstream.outputs.release != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: blue-house-cast-upstream-failure-${{ steps.upstream.outputs.release }}
+          path: .blue-house-cast-upstream-failure
+          if-no-files-found: error
+          retention-days: 90
